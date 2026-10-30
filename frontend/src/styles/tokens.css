@@ -1,0 +1,34 @@
+@theme {
+  /* Palet bawaan Tailwind dimatikan supaya cuma warna yang lolos cek kontras SRS 11.3 yang bisa dipakai. */
+  --color-*: initial;
+
+  --color-void: #0b0b0d;
+  --color-panel: #17171b;
+  --color-fg: #edeae3;
+  --color-fg-muted: #a3a09a;
+  --color-paper: #e8e2d4;
+  --color-ink: #1c1a17;
+  --color-ink-faded: #5c564b;
+  --color-stamp: #b3261e;
+  --color-signal: #ff5a36;
+  --color-line: #77736c;
+  --color-error: #ff8a73;
+  --color-ok: #7fd49a;
+  --color-wait: #f2c14e;
+
+  --font-heading: 'Archivo Narrow', 'Arial Narrow', sans-serif;
+  --font-body: 'Archivo Variable', Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Batas bawah untuk layar 320px, batas atas tercapai sekitar lebar 1280px. */
+  --text-display: clamp(2.25rem, 1.6rem + 3vw, 4rem);
+  --text-display--line-height: 1.05;
+
+  /* Satu radius untuk semua elemen, meniru kertas dan kartu fisik yang sudutnya hampir tajam. */
+  --radius-*: initial;
+  --radius-paper: 2px;
+
+  /* Bayangan hanya untuk benda kertas, supaya terpisah dari latar void. */
+  --shadow-*: initial;
+  --shadow-paper: 0 12px 28px rgb(0 0 0 / 0.55), 0 2px 6px rgb(0 0 0 / 0.4);
+}

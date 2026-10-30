@@ -26,16 +26,21 @@ onMounted(check)
 
 <template>
   <main class="mx-auto max-w-md p-6">
-    <h1 class="text-2xl font-bold">nvm-doomsday</h1>
-    <p class="mt-4" aria-live="polite">
+    <h1 class="text-display">nvm-doomsday</h1>
+    <p class="mt-4 text-fg-muted" aria-live="polite">
       <template v-if="state.kind === 'loading'">Mengecek backend...</template>
-      <template v-else-if="state.kind === 'ok'">Backend tersambung.</template>
-      <template v-else>Backend tidak bisa dihubungi ({{ state.message }}).</template>
+      <template v-else-if="state.kind === 'ok'">
+        <span class="text-ok">Backend tersambung.</span>
+      </template>
+      <template v-else>
+        <span class="text-error">Backend tidak bisa dihubungi ({{ state.message }}).</span>
+      </template>
     </p>
+    <p class="mt-2 font-mono text-sm text-fg-muted">GET /api/health</p>
     <button
       v-if="state.kind === 'error'"
       type="button"
-      class="mt-4 min-h-11 border px-4"
+      class="mt-4 min-h-11 rounded-paper border border-line px-4 active:translate-y-px"
       @click="check"
     >
       Coba lagi
