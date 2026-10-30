@@ -12,6 +12,7 @@ import (
 
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/config"
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/db"
+	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/db/sqlc"
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/httpapi"
 )
 
@@ -36,10 +37,11 @@ func run(log *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	router, err := httpapi.NewRouter(cfg, httpapi.Deps{Log: log, DB: pool})
-	if err != nil {
-		return err
-	}
+	router, err := httpapi.NewRouter(cfg, httpapi.Deps{
+		Log:     log,
+		DB:      pool,
+		Queries: sqlc.New(pool),
+	})
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,

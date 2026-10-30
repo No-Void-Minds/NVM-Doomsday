@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/config"
+	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/db/sqlc"
 )
 
 // Pinger dipisah sebagai interface supaya health check bisa diuji tanpa database sungguhan di Sprint 9.
@@ -18,8 +19,9 @@ type Pinger interface {
 }
 
 type Deps struct {
-	Log *slog.Logger
-	DB  Pinger
+	Log     *slog.Logger
+	DB      Pinger
+	Queries *sqlc.Queries
 }
 
 func NewRouter(cfg config.Config, deps Deps) (*gin.Engine, error) {
@@ -44,6 +46,7 @@ func NewRouter(cfg config.Config, deps Deps) (*gin.Engine, error) {
 
 	api := r.Group("/api")
 	api.GET("/health", healthHandler(deps))
+	api.GET("/event", eventHandler(deps))
 
 	return r, nil
 }
