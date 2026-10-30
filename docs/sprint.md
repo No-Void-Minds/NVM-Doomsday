@@ -117,9 +117,6 @@ Bentol yang ditemui:
 - Prettier dan gofmt menolak file yang tidak diakhiri newline. Penyebab: editor tidak membaca `.editorconfig`. Diselesaikan dengan `.vscode/settings.json`.
 - Sempat mencoba login Postgres dengan user Linux `nvmadmin`. User Postgres berbeda dari user SSH VM.
 
-## Sprint 1: Database (backend)
-
-Tujuan: skema sesuai SRS bagian 6, bisa dimigrasi naik dan turun.
 
 ## Sprint 1: Database (backend)
 
