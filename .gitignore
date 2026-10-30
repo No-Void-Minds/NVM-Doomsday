@@ -1,0 +1,27 @@
+# File env berisi sandi dan secret. Hanya contohnya yang boleh masuk git.
+.env
+.env.*
+!.env.example
+
+backend/bin/
+backend/tmp/
+*.test
+*.out
+coverage.*
+
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+*.log
+
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Hasil pg_dump berisi data pribadi peserta, jangan sampai ikut ter-push.
+*.sql.gz
+*.dump
