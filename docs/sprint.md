@@ -165,16 +165,43 @@ Referensi: SRS 6.1 sampai 6.3, NFR-06.
 
 Tujuan: dua endpoint publik bekerja sesuai SRS bagian 7.
 
-1. Konfigurasi dari env, logger terstruktur dengan request ID, format error JSON yang seragam (`code`, `message`, `fields`).
-2. `GET /api/event`: detail acara, `is_open`, sisa kursi, jumlah daftar tunggu, `max_guests_vip`. Field kosong dikirim `null` agar frontend menampilkan "Menyusul".
-3. Validasi input `POST /api/registrations`: tipe, jumlah tamu (Solo 0, VIP 1 sampai 3), nama 1 sampai 100, email valid maksimal 254, nama akun 1 sampai 50, trim spasi, email lowercase, tidak ada email ganda dalam satu registrasi, persetujuan wajib, honeypot harus kosong.
-4. Generator kode `NVM-DD-XXXXXX` (6 karakter dari alfabet tanpa O, I, L, 0, 1), dibuat dengan crypto/rand, coba ulang bila bentrok.
-5. Transaksi pendaftaran: kunci baris event, cek `is_open`, cek email terdaftar, hitung sisa kursi, tentukan status `confirmed` atau `waitlisted` untuk seluruh rombongan, simpan, commit. Kirim balik nomor urut bila daftar tunggu.
-6. Idempotency key: kalau key yang sama datang lagi, kembalikan registrasi yang sudah ada dengan status 200.
-7. Rate limit per IP untuk POST (baca IP dari header yang hanya dipercaya dari Nginx), CORS terbatas ke origin yang diatur di env.
+1. Request ID acak per request (header `X-Request-ID`), log akses JSON tanpa IP, query string, atau body, format error seragam `{"error": {"code", "message", "fields"}}`, recovery panic yang menjawab JSON.
+2. `GET /api/event`: detail acara, `is_open`, `seats_left`, `waitlisted_attendees`, `max_guests_vip`. Field kosong dikirim `null`. Header `Cache-Control: no-store`.
+3. Validasi input di paket `registration`: tipe, jumlah peserta (Solo 1, VIP 2 sampai 4), nama 1 sampai 100 karakter, email valid maksimal 254, nama akun 1 sampai 50, trim spasi, email huruf kecil, tanpa email ganda dalam satu formulir, persetujuan wajib, honeypot `website` harus kosong.
+4. Generator kode `NVM-DD-XXXXXX` dengan `crypto/rand` dari alfabet tanpa O, I, L, 0, 1, plus `NormalizeCode` untuk kode yang diketik manusia.
+5. Transaksi pendaftaran: kunci baris event, cek idempotency key, cek `is_open`, cek batas tamu VIP yang berlaku, cek email aktif, hitung sisa kursi, tentukan `confirmed` atau `waitlisted` untuk seluruh rombongan, buat kode unik, simpan, baca hasil sebelum commit.
+6. `POST /api/registrations`: 201 untuk pendaftaran baru, 200 untuk kiriman ulang dengan idempotency key yang sama, 409 untuk ditutup dan email terdaftar, 422 untuk isian salah, body maksimal 16 KB.
+7. Rate limit per IP (10 beruntun, lalu 1 per 6 detik), `TRUSTED_PROXIES` dari env, wajib `Content-Type: application/json` (415 kalau bukan).
 
 Selesai bila: semua kode respons di SRS 7 bisa dipicu lewat curl, check.sh lulus.
 Referensi: FR-10 sampai FR-19, FR-21, NFR-05, NFR-06, NFR-08.
+
+### Laporan
+
+Status: selesai, 30 Oktober 2026.
+
+Hasil uji curl:
+- Solo baru 201, kiriman ulang key sama 200 dengan kode sama, email sama berhuruf kapital 409 `duplicate_email`.
+- Isian salah 422 dengan pesan per kolom, VIP dengan satu tamu 201.
+- Kapasitas diturunkan ke 3: VIP masuk daftar tunggu utuh dengan nomor urut 1, `seats_left` 0.
+- `is_open` false: 409 `registration_closed`.
+- Kiriman tanpa JSON 415. Kiriman beruntun ke-10 dan seterusnya 429.
+- Data uji dihapus, `event_config` dikembalikan ke kapasitas 200 dan terbuka.
+
+Perubahan dari rencana:
+- CORS tidak dipasang. Frontend dan API selalu satu origin (proxy Vite di dev, Nginx di server), jadi tanpa header CORS browser sudah menolak situs lain membaca API. Kiriman lintas situs berjenis `text/plain` ditutup dengan mewajibkan `application/json`.
+- Idempotency key dicek di dalam transaksi setelah kunci event didapat, bukan sebelumnya, supaya dua kiriman dengan key sama tidak sama-sama lolos. Langkah 6 jadi bagian dari langkah 5.
+- Langkah 5 dipecah: logika transaksi di paket `registration`, handler HTTP terpisah.
+- Batas tamu VIP dicek dua kali: batas mutlak 3 saat validasi, `max_guests_vip` yang berlaku di dalam transaksi.
+- Batas rate dibuat longgar karena banyak pengguna HP berbagi satu IP publik dari operator.
+
+Dipindah ke Sprint 8:
+- Isi `TRUSTED_PROXIES` dengan subnet network Docker Nginx, lalu pastikan rate limit membaca IP asli pengunjung, bukan IP Nginx.
+
+Dipindah ke Sprint 9:
+- Uji balapan: banyak pendaftaran serentak saat sisa kursi sedikit tidak boleh melebihi kapasitas.
+- Unit test validasi dan generator kode.
+
 
 ## Sprint 3: API admin, ekspor, CLI (backend)
 
