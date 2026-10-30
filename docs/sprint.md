@@ -121,15 +121,48 @@ Bentol yang ditemui:
 
 Tujuan: skema sesuai SRS bagian 6, bisa dimigrasi naik dan turun.
 
-1. Di VM: buat database `nvm_doomsday` dan role `doomsday_app` dengan sandi kuat. Catat di password manager, bukan di repo.
-2. `backend/migrations/0001`: tipe enum `registration_type`, `registration_status`, `attendee_role`; tabel `event_config`, `registrations`, `attendees`.
-3. Index unik `lower(email)` di `attendees` hanya untuk registrasi yang tidak berstatus `cancelled`, supaya email dari registrasi yang dibatalkan bisa dipakai daftar lagi.
-4. Index pendukung: `registrations(status, created_at)` untuk nomor urut daftar tunggu, `attendees(registration_id)`.
-5. `backend/migrations/0002`: seed `event_config` id 1 (judul acara, judul film, capacity 200, max_guests_vip 3, is_open true, field lokasi dan jadwal kosong).
-6. Query sqlc di `backend/queries/`: ambil event, kunci event (`FOR UPDATE`), hitung peserta terkonfirmasi, hitung posisi daftar tunggu, simpan registrasi dan peserta, cari berdasarkan idempotency key, cari berdasarkan kode, ubah status, ringkasan admin, data ekspor.
+## Sprint 1: Database (backend)
+
+Tujuan: skema sesuai SRS bagian 6, bisa dimigrasi naik dan turun.
+
+1. Di VM: database `nvm_doomsday`, role `doomsday_migrator` (pemilik) dan `doomsday_app` (SELECT, INSERT, UPDATE lewat default privileges). Izin CONNECT dicabut dari PUBLIC di `nvm_doomsday`, `nvm_internal`, dan `nvm_internal_test`.
+2. Backend tersambung lewat pgxpool (maksimal 10 koneksi), `GET /api/health` ikut mengecek database dan menjawab 503 saat database putus.
+3. Migrasi 0001: enum `registration_type`, `registration_status`, `attendee_role`; tabel `event_config`, `registrations`, `attendees` dengan CHECK untuk format kode, email huruf kecil, dan posisi peserta.
+4. Migrasi 0002: index unik email untuk peserta aktif, index `registrations(status, created_at)`, trigger yang menjaga `status_changed_at` dan `attendees.is_active` sinkron dengan status.
+5. Migrasi 0003: seed `event_config` (capacity 200, max_guests_vip 3, lokasi dan jadwal NULL).
+6. sqlc: query acara, pendaftaran, ringkasan admin, dan ekspor. `check.sh` menjalankan `sqlc diff`.
+7. Uji migrate down dan up penuh.
+
+Selesai bila: `migrate down -all` dan `migrate up` bersih, izin dan seed terbentuk ulang, `sqlc generate` tanpa error, check.sh lulus.
+Referensi: SRS 6.1 sampai 6.3, NFR-06.
+
+### Laporan
+
+Status: selesai, 30 Oktober 2026.
+
+Perubahan dari rencana:
+- Dua role database, bukan satu. `doomsday_app` tidak punya DDL dan DELETE, supaya celah di backend tidak bisa menghapus tabel atau data peserta.
+- Kolom `attendees.is_active` ditambahkan. Index unik email hanya untuk peserta aktif butuh kolom ini, karena index tidak bisa membaca kolom dari tabel `registrations`. Nilainya dijaga trigger, bukan kode aplikasi.
+- Index terpisah untuk `attendees(registration_id)` tidak dibuat, karena sudah tercakup index dari `UNIQUE (registration_id, position)`.
+- Nomor migrasi: 0001 tabel, 0002 index dan trigger, 0003 seed. Migrasi yang sudah dijalankan tidak diedit, perubahan selalu jadi migrasi baru.
+- `created_at` registrasi memakai `clock_timestamp()` supaya urutan daftar tunggu sama dengan urutan pendaftaran diproses.
+
+Bentol yang ditemui:
+- Query hak akses sempat dijalankan di database `postgres` karena koneksi TablePlus belum pindah database. Sudah dikembalikan ke pengaturan bawaan. Pelajaran: selalu cek nama database di bar atas TablePlus sebelum menjalankan SQL yang mengubah izin.
+- Sandi role sempat tidak cocok dan nama database ikut spasi saat ditempel. Diselesaikan dengan `ALTER ROLE ... PASSWORD` dan mengetik ulang nama database.
+
+Catatan di luar repo ini:
+- Backend NVM-Internal login sebagai `nvm_internal`, yang superuser. Sebaiknya NVM-Internal punya role aplikasi sendiri seperti `doomsday_app`, dan `nvm_internal` hanya untuk administrasi.
+- Riwayat query TablePlus menyimpan perintah `CREATE ROLE` dan `ALTER ROLE` beserta sandinya. Hapus dari tab History.
+
+Dipindah ke Sprint 9:
+- Uji health saat database putus, pulih tanpa restart, dan gagal di awal saat database tidak terjangkau.
+- Uji trigger: membatalkan registrasi membuat email pesertanya bisa dipakai lagi.
 
 Selesai bila: `migrate up` dan `migrate down` bersih di database dev, `sqlc generate` tanpa error, check.sh lulus.
 Referensi: SRS 6.1 sampai 6.3, NFR-06.
+
+- Database: PostgreSQL 18 di container yang sudah ada di VM `nvm-server`. Database `nvm_doomsday` dengan dua role: `doomsday_migrator` (pemilik, hanya untuk migrasi) dan `doomsday_app` (backend dan CLI, hanya SELECT, INSERT, UPDATE).
 
 ## Sprint 2: API publik (backend)
 
