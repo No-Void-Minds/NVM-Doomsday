@@ -37,45 +37,36 @@ Acuan tampilan: proyek Stitch "Void screening invitation system" (versi final ya
 
 ## Struktur repo
 
-    nvm-doomsday/
-      backend/
-        cmd/
-          api/              server HTTP
-          doomsday-admin/   CLI admin: promote, cancel, rename, event
-        internal/
-          config/           baca env
-          db/               hasil sqlc
-          httpapi/          router, handler, middleware
-          registration/     aturan kuota, daftar tunggu, kode registrasi
-          export/           CSV dan XLSX
-        migrations/
-        queries/            file SQL untuk sqlc
-        sqlc.yaml
-        go.mod
-        Dockerfile
-        .env.example
-      frontend/
-        src/
-          api/              klien API dan tipe respons
-          components/       komponen dasar
-          composables/      state dan logika bersama
-          pages/            halaman undangan dan admin
-          styles/           token dan CSS global
-        public/
-        package.json
-        vite.config.ts
-        nginx.conf
-        Dockerfile
-        .env.example
-      deploy/
-        docker-compose.yml
-        .env.example
-      scripts/
-        check.sh            jalankan pengecekan backend lalu frontend
-        dev-db-tunnel.sh
-      docs/
-        sprint.md
-        SRS-NVM-Doomsday-v0.2.docx
+nvm-doomsday/
+  backend/
+    cmd/
+      server/main.go
+      doomsday-admin/main.go
+    internal/
+      config/
+      db/
+        queries/       file .sql untuk sqlc
+        sqlc/          hasil generate, jangan diedit manual
+      httpapi/
+      registration/
+      export/
+    migrations/
+    sqlc.yaml
+    .env.example
+    go.mod
+  frontend/            dibuat oleh create-vite
+    src/
+      api/
+      components/
+      composables/
+      pages/
+      router/
+      styles/
+  deploy/              diisi di Sprint 8
+  docs/
+  scripts/
+  .gitignore
+  README.md
 
 Backend dan frontend tidak saling import. Satu-satunya kontrak di antara keduanya adalah API di SRS bagian 7.
 
