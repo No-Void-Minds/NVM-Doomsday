@@ -23,6 +23,10 @@ if [[ -n "$unformatted" ]]; then
   false
 fi
 
+step "backend: sqlc diff"
+# Gagal kalau isi internal/db/sqlc tidak sama dengan hasil generate dari query dan migrasi sekarang.
+sqlc diff
+
 step "backend: go vet"
 go vet ./...
 
