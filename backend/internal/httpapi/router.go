@@ -28,13 +28,19 @@ func NewRouter(cfg config.Config, deps Deps) (*gin.Engine, error) {
 	}
 
 	r := gin.New()
-	r.Use(gin.Recovery())
+	// Urutan penting: request ID dulu supaya tersedia untuk log, log membungkus recovery
+	// supaya request yang panic tetap tercatat dengan status 500.
+	r.Use(requestID(), accessLog(deps.Log), recoverJSON(deps.Log))
 
-	// Belum ada proxy yang dipercaya. Daftar IP Nginx diisi di Sprint 2 bersama rate limit,
+	// Belum ada proxy yang dipercaya. Daftar IP Nginx diisi di langkah 7 bersama rate limit,
 	// karena rate limit per IP butuh X-Forwarded-For yang hanya boleh dibaca dari Nginx.
 	if err := r.SetTrustedProxies(nil); err != nil {
 		return nil, fmt.Errorf("atur trusted proxies: %w", err)
 	}
+
+	r.NoRoute(func(c *gin.Context) {
+		writeError(c, http.StatusNotFound, CodeNotFound, "Alamat tidak ditemukan.", nil)
+	})
 
 	api := r.Group("/api")
 	api.GET("/health", healthHandler(deps))
@@ -49,7 +55,8 @@ func healthHandler(deps Deps) gin.HandlerFunc {
 
 		if err := deps.DB.Ping(ctx); err != nil {
 			// Endpoint ini publik. Detail error (alamat, nama database) cukup di log server.
-			deps.Log.Error("health: database tidak bisa dijangkau", "err", err)
+			deps.Log.Error("health: database tidak bisa dijangkau",
+				"request_id", c.GetString(requestIDKey), "err", err)
 			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "error", "database": "down"})
 			return
 		}
