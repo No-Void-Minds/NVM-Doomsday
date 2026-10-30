@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/config"
+	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/db"
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/httpapi"
 )
 
@@ -28,7 +29,14 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
-	router, err := httpapi.NewRouter(cfg)
+	// Gagal di awal kalau database tidak terjangkau, daripada server jalan tapi semua request error.
+	pool, err := db.NewPool(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	router, err := httpapi.NewRouter(cfg, httpapi.Deps{Log: log, DB: pool})
 	if err != nil {
 		return err
 	}

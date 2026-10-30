@@ -25,3 +25,4 @@ desktop.ini
 # Hasil pg_dump berisi data pribadi peserta, jangan sampai ikut ter-push.
 *.sql.gz
 *.dump
+!.vscode/settings.json
