@@ -23,6 +23,13 @@ type registrationResponse struct {
 
 func registerHandler(deps Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Mewajibkan JSON memaksa browser menjalankan pemeriksaan CORS untuk kiriman dari situs lain.
+		// Karena API tidak memasang header CORS, kiriman semacam itu ditolak browser.
+		if c.ContentType() != "application/json" {
+			writeError(c, http.StatusUnsupportedMediaType, CodeValidation,
+				"Format kiriman tidak didukung.", nil)
+			return
+		}
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxRegistrationBody)
 
 		var req registration.Request

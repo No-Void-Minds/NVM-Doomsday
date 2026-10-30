@@ -36,9 +36,8 @@ func NewRouter(cfg config.Config, deps Deps) (*gin.Engine, error) {
 	// supaya request yang panic tetap tercatat dengan status 500.
 	r.Use(requestID(), accessLog(deps.Log), recoverJSON(deps.Log))
 
-	// Belum ada proxy yang dipercaya. Daftar IP Nginx diisi di langkah 7 bersama rate limit,
-	// karena rate limit per IP butuh X-Forwarded-For yang hanya boleh dibaca dari Nginx.
-	if err := r.SetTrustedProxies(nil); err != nil {
+	// Kosong di dev. Di server diisi subnet network Docker tempat Nginx berada (Sprint 8).
+	if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil {
 		return nil, fmt.Errorf("atur trusted proxies: %w", err)
 	}
 
@@ -49,7 +48,7 @@ func NewRouter(cfg config.Config, deps Deps) (*gin.Engine, error) {
 	api := r.Group("/api")
 	api.GET("/health", healthHandler(deps))
 	api.GET("/event", eventHandler(deps))
-	api.POST("/registrations", registerHandler(deps))
+	api.POST("/registrations", rateLimit(newIPLimiter(6*time.Second, 10)), registerHandler(deps))
 
 	return r, nil
 }

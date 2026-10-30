@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type Config struct {
-	Env         string
-	Addr        string
-	DatabaseURL string
+	Env            string
+	Addr           string
+	DatabaseURL    string
+	TrustedProxies []string
 }
 
 func Load() (Config, error) {
@@ -24,6 +26,7 @@ func Load() (Config, error) {
 	if cfg.DatabaseURL == "" {
 		return Config{}, errors.New("DATABASE_URL wajib diisi")
 	}
+	cfg.TrustedProxies = splitList(os.Getenv("TRUSTED_PROXIES"))
 	return cfg, nil
 }
 
@@ -32,4 +35,14 @@ func getenv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func splitList(s string) []string {
+	var out []string
+	for _, part := range strings.Split(s, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
