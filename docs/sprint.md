@@ -95,6 +95,28 @@ Tujuan: repo siap dikerjakan, `check.sh` hijau dengan proyek kosong.
 
 Selesai bila: `./scripts/check.sh` lulus, backend dan frontend jalan bersamaan, halaman frontend memanggil `/api/health` lewat proxy dan memakai font serta warna dari token.
 
+### Laporan
+
+Status: selesai, 30 Oktober 2026.
+
+Hasil:
+- `./scripts/check.sh` lulus untuk backend dan frontend.
+- Backend menjawab `GET /api/health`, frontend memanggilnya lewat proxy Vite dengan state memuat, berhasil, dan gagal.
+- Token warna, font (di-host sendiri), radius, dan bayangan dari SRS 11.3 sampai 11.5 terpasang di `frontend/src/styles/tokens.css`.
+- `scripts/dev-db-tunnel.sh` terbukti menyambung ke Postgres di VM lewat port lokal 15432.
+
+Perubahan dari rencana:
+- Struktur repo mengikuti pola NVM-Internal: `cmd/server`, `internal/db/queries` dan `internal/db/sqlc`, `internal/httpapi`, `composables/` sebagai pengganti `stores/`. `.env.example` hanya di backend. Tidak ada `docker-compose.dev.yml` karena database dev memakai Postgres di VM.
+- Frontend dibuat dengan create-vue (TypeScript, Router, ESLint, Prettier), tanpa fitur eksperimental.
+- Ditambahkan `.gitattributes` (akhir baris LF) karena pengembangan di Windows sementara script dijalankan di Linux.
+- Ditambahkan `.vscode/extensions.json` dan `.vscode/settings.json` supaya editor selalu menambahkan newline di akhir file dan memformat saat simpan.
+- `check.sh` ditambah cek em dash di teks backend dan frontend (aturan AntiSlop).
+- Izin eksekusi script dicatat di Git dengan `git add --chmod=+x`.
+
+Bentol yang ditemui:
+- Prettier dan gofmt menolak file yang tidak diakhiri newline. Penyebab: editor tidak membaca `.editorconfig`. Diselesaikan dengan `.vscode/settings.json`.
+- Sempat mencoba login Postgres dengan user Linux `nvmadmin`. User Postgres berbeda dari user SSH VM.
+
 ## Sprint 1: Database (backend)
 
 Tujuan: skema sesuai SRS bagian 6, bisa dimigrasi naik dan turun.
