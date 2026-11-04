@@ -1,28 +1,25 @@
 package main
 
 import (
-	"bufio"
+	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
-	"strings"
-	"unicode/utf8"
+	"os/signal"
 
-	"golang.org/x/crypto/bcrypt"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/db"
 )
 
-func main() {
-	if len(os.Args) < 2 {
-		usage()
-		os.Exit(2)
-	}
+var errUsage = errors.New("pemakaian salah")
 
-	var err error
-	switch os.Args[1] {
-	case "hash-password":
-		err = hashPassword(os.Stdin, os.Stdout)
-	default:
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	err := run(ctx, os.Args[1:])
+	stop()
+
+	if errors.Is(err, errUsage) {
 		usage()
 		os.Exit(2)
 	}
@@ -32,34 +29,43 @@ func main() {
 	}
 }
 
+func run(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return errUsage
+	}
+	switch args[0] {
+	case "hash-password":
+		return hashPassword(os.Stdin, os.Stdout)
+	case "event":
+		return withPool(ctx, func(pool *pgxpool.Pool) error { return eventCmd(ctx, pool, args[1:]) })
+	default:
+		return errUsage
+	}
+}
+
 func usage() {
 	fmt.Fprintln(os.Stderr, `Pemakaian: doomsday-admin <perintah>
 
 Perintah:
-  hash-password   baca sandi dari stdin, cetak hash bcrypt untuk ADMIN_PASSWORD_HASH`)
+  hash-password             baca sandi dari stdin, cetak hash bcrypt untuk ADMIN_PASSWORD_HASH
+  event show                tampilkan konfigurasi acara dan jumlah peserta
+  event set <field> <nilai> ubah satu field, nilai "-" mengosongkan field yang boleh kosong
+
+Field event: title, film_title, cinema_name, city, studio, gather_at, show_at,
+             map_url, capacity, max_guests_vip, is_open
+Format jam: "YYYY-MM-DD HH:MM" dalam WIB, contoh: event set show_at "2026-12-18 19:00"`)
 }
 
-// Sandi dibaca dari stdin, bukan argumen, supaya tidak tersimpan di riwayat shell atau daftar proses.
-func hashPassword(in io.Reader, out io.Writer) error {
-	line, err := bufio.NewReader(in).ReadString('\n')
-	if err != nil && !errors.Is(err, io.EOF) {
-		return fmt.Errorf("baca sandi: %w", err)
+// CLI login sebagai doomsday_app, sama seperti backend, jadi tidak bisa menghapus data atau mengubah tabel.
+func withPool(ctx context.Context, fn func(*pgxpool.Pool) error) error {
+	url := os.Getenv("DATABASE_URL")
+	if url == "" {
+		return errors.New("DATABASE_URL belum diisi, jalankan dulu: set -a; . ./.env; set +a")
 	}
-	pw := strings.TrimRight(line, "\r\n")
-
-	if utf8.RuneCountInString(pw) < 10 {
-		return errors.New("sandi minimal 10 karakter")
-	}
-	// bcrypt hanya memakai 72 byte pertama. Sandi lebih panjang ditolak supaya tidak ada ilusi keamanan.
-	if len(pw) > 72 {
-		return errors.New("sandi maksimal 72 byte")
-	}
-
-	// Cost 12 sekitar 0,25 detik per cek di laptop biasa: lambat untuk penebak, tidak terasa bagi admin.
-	hash, err := bcrypt.GenerateFromPassword([]byte(pw), 12)
+	pool, err := db.NewPool(ctx, url)
 	if err != nil {
-		return fmt.Errorf("buat hash: %w", err)
+		return err
 	}
-	fmt.Fprintln(out, string(hash))
-	return nil
+	defer pool.Close()
+	return fn(pool)
 }

@@ -53,8 +53,8 @@ func eventHandler(deps Deps) gin.HandlerFunc {
 			CinemaName:          ev.CinemaName,
 			City:                ev.City,
 			Studio:              ev.Studio,
-			GatherAt:            ev.GatherAt,
-			ShowAt:              ev.ShowAt,
+			GatherAt:            utc(ev.GatherAt),
+			ShowAt:              utc(ev.ShowAt),
 			MapURL:              ev.MapUrl,
 			Capacity:            ev.Capacity,
 			MaxGuestsVIP:        ev.MaxGuestsVip,
@@ -63,4 +63,13 @@ func eventHandler(deps Deps) gin.HandlerFunc {
 			WaitlistedAttendees: sum.WaitlistedAttendees,
 		})
 	}
+}
+
+// Dikirim selalu dalam UTC supaya keluaran API tidak bergantung pada zona waktu mesin yang menjalankannya.
+func utc(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	u := t.UTC()
+	return &u
 }
