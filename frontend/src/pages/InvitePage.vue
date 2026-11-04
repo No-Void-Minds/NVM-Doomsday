@@ -8,6 +8,7 @@ import EventSpecSheet from '@/components/invite/EventSpecSheet.vue'
 import InviteOpening from '@/components/invite/InviteOpening.vue'
 import { useEvent } from '@/composables/useEvent'
 import { useRecipient } from '@/composables/useRecipient'
+import EventCountdown from '@/components/invite/EventCountdown.vue'
 
 const OPENED_KEY = 'doomsday_opened'
 
@@ -75,6 +76,9 @@ async function onOpen() {
       <BaseButton variant="outline" class="mt-6" block @click="reload">Coba lagi</BaseButton>
     </BasePanel>
 
-    <EventSpecSheet v-else :event="eventState.event" />
+    <template v-else>
+      <EventSpecSheet :event="eventState.event" />
+      <EventCountdown :show-at="eventState.event.show_at" />
+    </template>
   </main>
 </template>
