@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { nextTick, ref, useTemplateRef } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
 
+import EventSeats from '@/components/invite/EventSeats.vue'
 import BaseButton from '@/components/BaseButton.vue'
 import BasePanel from '@/components/BasePanel.vue'
 import BaseSkeleton from '@/components/BaseSkeleton.vue'
@@ -13,7 +14,7 @@ import EventCountdown from '@/components/invite/EventCountdown.vue'
 const OPENED_KEY = 'doomsday_opened'
 
 const recipient = useRecipient()
-const { state: eventState, reload } = useEvent()
+const { state: eventState, reload, refresh } = useEvent()
 
 // sessionStorage bisa diblokir di mode privat atau browser bawaan aplikasi. Kalau gagal, amplop tetap jalan
 // dan hanya muncul lagi saat halaman dimuat ulang.
@@ -43,6 +44,16 @@ async function onOpen() {
   // Pengguna keyboard dan pembaca layar langsung berada di awal isi undangan, bukan di awal halaman.
   heading.value?.focus()
 }
+// Affiliator sering membuka link, pindah ke aplikasi lain, lalu kembali. Sisa kursi diambil ulang
+// diam-diam saat tab kembali terlihat, supaya angkanya tidak basi.
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    refresh()
+  }
+}
+
+onMounted(() => document.addEventListener('visibilitychange', onVisibilityChange))
+onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibilityChange))
 </script>
 
 <template>
@@ -79,6 +90,7 @@ async function onOpen() {
     <template v-else>
       <EventSpecSheet :event="eventState.event" />
       <EventCountdown :show-at="eventState.event.show_at" />
+      <EventSeats :event="eventState.event" />
     </template>
   </main>
 </template>
