@@ -8,12 +8,14 @@ import (
 
 // Kode error dibaca frontend untuk memilih tampilan. Teksnya stabil, jangan diganti tanpa mengubah frontend.
 const (
-	CodeValidation     = "validation_failed"
-	CodeNotFound       = "not_found"
-	CodeClosed         = "registration_closed"
-	CodeDuplicateEmail = "duplicate_email"
-	CodeRateLimited    = "rate_limited"
-	CodeInternal       = "internal_error"
+	CodeValidation      = "validation_failed"
+	CodeNotFound        = "not_found"
+	CodeClosed          = "registration_closed"
+	CodeDuplicateEmail  = "duplicate_email"
+	CodeRateLimited     = "rate_limited"
+	CodeInternal        = "internal_error"
+	CodeUnauthorized    = "unauthorized"
+	CodeInvalidPassword = "invalid_password"
 )
 
 type FieldError struct {

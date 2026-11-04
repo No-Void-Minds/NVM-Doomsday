@@ -49,6 +49,14 @@ func NewRouter(cfg config.Config, deps Deps) (*gin.Engine, error) {
 	api.GET("/health", healthHandler(deps))
 	api.GET("/event", eventHandler(deps))
 	api.POST("/registrations", rateLimit(newIPLimiter(6*time.Second, 10)), registerHandler(deps))
+	admin := api.Group("/admin")
+	// Lebih ketat dari pendaftaran: 5 percobaan beruntun, lalu 1 per 12 detik per IP.
+	admin.POST("/login", rateLimit(newIPLimiter(12*time.Second, 5)), loginHandler(cfg, deps))
+	admin.POST("/logout", logoutHandler(cfg))
+
+	authed := admin.Group("", requireAdmin(cfg))
+	// Dipakai frontend untuk memutuskan menampilkan form masuk atau ringkasan.
+	authed.GET("/session", func(c *gin.Context) { c.Status(http.StatusNoContent) })
 
 	return r, nil
 }
