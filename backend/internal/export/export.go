@@ -194,7 +194,7 @@ func WriteXLSX(w io.Writer, rows []Row) error {
 	}); err != nil {
 		return err
 	}
-	widths := []float64{18, 15, 12, 8, 11, 26, 26, 30, 20, 20}
+	widths := []float64{18, 15, 24, 8, 11, 26, 26, 30, 20, 20}
 	for i, width := range widths {
 		col, err := excelize.ColumnNumberToName(i + 1)
 		if err != nil {
