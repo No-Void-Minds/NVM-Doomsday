@@ -9,7 +9,9 @@ import BaseSkeleton from '@/components/BaseSkeleton.vue'
 import BaseStamp from '@/components/BaseStamp.vue'
 import VoidSlit from '@/components/VoidSlit.vue'
 import type { AccordionItem } from '@/components/accordion'
+import { useEvent } from '@/composables/useEvent'
 
+const { state: eventState, reload, refresh } = useEvent()
 const name = ref('')
 const email = ref('nama@contoh')
 const password = ref('')
@@ -113,6 +115,30 @@ function simulateLoading() {
         <BaseSkeleton class="h-6 w-48 max-w-full" />
         <BaseSkeleton class="h-4 w-full" />
         <BaseSkeleton class="h-4 w-3/4" />
+      </div>
+    </BasePanel>
+    <BasePanel>
+      <h2 class="text-2xl">useEvent</h2>
+      <div class="mt-4" :aria-busy="eventState.kind === 'loading'">
+        <div v-if="eventState.kind === 'loading'" class="flex flex-col gap-3">
+          <span class="sr-only">Memuat detail acara...</span>
+          <BaseSkeleton class="h-6 w-56 max-w-full" />
+          <BaseSkeleton class="h-4 w-32" />
+        </div>
+        <div v-else-if="eventState.kind === 'ready'">
+          <p class="font-heading text-xl">{{ eventState.event.title }}</p>
+          <p class="mt-1 text-fg-muted">
+            {{ eventState.event.seats_left }} dari {{ eventState.event.capacity }} kursi tersisa
+          </p>
+        </div>
+        <div v-else role="alert">
+          <p class="font-heading text-xl">Detail acara gagal dimuat.</p>
+          <p class="mt-1 text-fg-muted">{{ eventState.error.message }}</p>
+        </div>
+      </div>
+      <div class="mt-4 flex flex-wrap gap-3">
+        <BaseButton variant="outline" @click="reload">Coba lagi</BaseButton>
+        <BaseButton variant="text" @click="refresh">Perbarui diam-diam</BaseButton>
       </div>
     </BasePanel>
   </main>
