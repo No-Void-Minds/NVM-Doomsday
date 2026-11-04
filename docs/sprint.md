@@ -207,15 +207,45 @@ Dipindah ke Sprint 9:
 
 Tujuan: admin bisa masuk, melihat ringkasan, mengunduh data, dan mengelola status lewat CLI.
 
-1. Login admin: sandi dicek terhadap hash bcrypt di env `ADMIN_PASSWORD_HASH`. Sesi berupa cookie HttpOnly, SameSite=Strict, ditandatangani HMAC dengan `SESSION_SECRET`, kedaluwarsa 8 jam. Rate limit percobaan login.
-2. `GET /api/admin/summary`: jumlah peserta terkonfirmasi, daftar tunggu, registrasi batal.
-3. `GET /api/admin/export?format=csv` dan `format=xlsx`: kolom dan urutan sesuai FR-32 dan FR-33, waktu dalam WIB, nama file sesuai FR-35.
-4. CSV: UTF-8 dengan BOM, nilai yang diawali `=`, `+`, `-`, `@` diberi awalan apostrof.
-5. CLI `backend/cmd/doomsday-admin`: `promote <kode>` (gagal kalau kursi tidak cukup), `cancel <kode>`, `rename <kode> <posisi>` (ubah nama, email, atau nama akun), `event set <field> <nilai>` dan `event show` untuk FR-36.
-6. Semua perubahan lewat CLI mengisi `status_changed_at` dan mencetak ringkasan sebelum dan sesudah.
+1. Login admin: sandi dicek terhadap hash bcrypt (cost 12) di `ADMIN_PASSWORD_HASH`. Sesi berupa cookie `doomsday_admin` berisi waktu kedaluwarsa dan HMAC dari `SESSION_SECRET`, HttpOnly, SameSite=Strict, path `/api/admin`, berlaku 8 jam. `Secure` diatur lewat `COOKIE_SECURE`. Rate limit login 5 beruntun lalu 1 per 12 detik per IP. Endpoint: `POST /api/admin/login`, `POST /api/admin/logout`, `GET /api/admin/session`.
+2. `GET /api/admin/summary`: kapasitas, peserta terkonfirmasi, peserta daftar tunggu, registrasi batal.
+3. `GET /api/admin/export?format=csv` dan `format=xlsx`: kolom FR-32, urutan FR-33, waktu WIB, nama file FR-35. CSV memakai BOM UTF-8, CRLF, dan apostrof untuk sel berawalan `=`, `+`, `-`, `@`, tab, atau CR. XLSX dengan judul tebal dan terkunci.
+4. CLI `doomsday-admin`: `hash-password`, `event show`, `event set <field> <nilai>`, `promote <kode>`, `cancel <kode>`, `rename <kode> <posisi> [--name] [--email] [--account]`. Setiap perubahan mencetak keadaan sebelum dan sesudah.
 
 Selesai bila: file CSV dan XLSX terbuka benar di Excel, CLI jalan di database dev, check.sh lulus.
 Referensi: FR-30 sampai FR-38.
+
+### Laporan
+
+Status: selesai, 4 November 2026.
+
+Hasil uji:
+- Login: tanpa cookie 401, sandi salah 401 `invalid_password`, sandi benar 204, cookie HttpOnly dengan path `/api/admin`.
+- Ringkasan: 401 tanpa cookie, 200 dengan `Cache-Control: no-store`, angka cocok dengan database.
+- Ekspor: format salah 422, nama file dengan jam WIB, BOM ada, urutan terkonfirmasi lalu daftar tunggu lalu batal, nomor urut daftar tunggu ikut maju saat registrasi di depannya dibatalkan, `=1+1` dan `@uji2` diberi apostrof di CSV, XLSX menampilkannya sebagai teks. File kosong berisi judul kolom saja.
+- CLI event: field opsional bisa dikosongkan dengan `-`, jam dibaca sebagai WIB, jam kumpul setelah jam tayang ditolak CHECK database, link non-https dan kapasitas di luar 1 sampai 10000 ditolak.
+- CLI status: sepuluh skenario promote, cancel, rename lolos, termasuk kode huruf kecil, rombongan yang tidak muat, email yang sudah dipakai, dan posisi kosong.
+- Email dari registrasi yang dibatalkan bisa dipakai mendaftar lagi (trigger `is_active` dari migrasi 0002 terbukti).
+
+Perubahan dari rencana:
+- Langkah 3 dan 4 digabung: pengamanan CSV ditulis bersama kode yang menulis CSV.
+- Langkah 5 dan 6 digabung: ringkasan sebelum dan sesudah langsung jadi bagian setiap perintah CLI.
+- `COOKIE_SECURE` dibuat bisa diatur karena Sprint 8 masih HTTP lewat LAN. Wajib `true` di Sprint 10.
+- CLI login sebagai `doomsday_app`, cukup `DATABASE_URL`, tidak butuh hash sandi atau session secret.
+- `promote` dan `cancel` memakai kunci event yang sama dengan pendaftaran, supaya tidak balapan dengan pendaftar baru. Promosi dari daftar tunggu tetap manual, CLI hanya menyebut registrasi teratas.
+- Zona waktu WIB didefinisikan sekali di `internal/timezone` sebagai offset tetap UTC+7.
+- `GET /api/event` mengirim waktu dalam UTC supaya keluaran tidak bergantung pada zona waktu mesin. Perubahan ini ikut masuk di commit `4e6e825` (CLI event), bukan commit tersendiri.
+- "Waktu ekspor terakhir" di FR-37 ditunda: butuh tabel baru untuk mencatat ekspor dan tidak ada di desain yang sudah direview.
+
+Keputusan untuk Sprint 6:
+- Nomor urut daftar tunggu bisa maju setelah pendaftar mendapat kartu. Kartu akses perlu menulis "nomor urut saat mendaftar", atau frontend perlu cara mengambil posisi terbaru.
+
+Dipindah ke Sprint 8:
+- Cara menjalankan CLI di server: `docker compose exec doomsday-backend doomsday-admin <perintah>`.
+
+Dipindah ke Sprint 9:
+- Buka file CSV ekspor di Excel dengan pengaturan regional Indonesia. Kalau semua isi menumpuk di satu kolom, putuskan antara pemisah titik koma atau XLSX sebagai format utama untuk Excel.
+- Unit test `adminauth` (token kedaluwarsa, tanda tangan salah) dan `export` (urutan, nomor urut, sanitasi CSV).
 
 ## Sprint 4: Kerangka (frontend)
 
