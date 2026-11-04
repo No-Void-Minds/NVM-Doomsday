@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-
+import { computed, ref } from 'vue'
 import BaseButton from '@/components/BaseButton.vue'
 import BaseField from '@/components/BaseField.vue'
 import BasePanel from '@/components/BasePanel.vue'
@@ -10,8 +9,24 @@ import BaseStamp from '@/components/BaseStamp.vue'
 import VoidSlit from '@/components/VoidSlit.vue'
 import type { AccordionItem } from '@/components/accordion'
 import { useEvent } from '@/composables/useEvent'
+import type { EventInfo } from '@/api/types'
+import EventSpecSheet from '@/components/invite/EventSpecSheet.vue'
 
 const { state: eventState, reload, refresh } = useEvent()
+// Data contoh khusus halaman development, untuk melihat tampilan saat semua jadwal sudah terisi.
+const filledSample = computed<EventInfo | null>(() =>
+  eventState.value.kind === 'ready'
+    ? {
+        ...eventState.value.event,
+        cinema_name: 'Contoh nama bioskop yang cukup panjang untuk diuji',
+        city: 'Contoh kota',
+        studio: 'Studio contoh',
+        gather_at: '2026-12-18T11:15:00Z',
+        show_at: '2026-12-18T12:00:00Z',
+        map_url: 'https://maps.google.com',
+      }
+    : null,
+)
 const name = ref('')
 const email = ref('nama@contoh')
 const password = ref('')
@@ -141,5 +156,14 @@ function simulateLoading() {
         <BaseButton variant="text" @click="refresh">Perbarui diam-diam</BaseButton>
       </div>
     </BasePanel>
+    <section v-if="eventState.kind === 'ready'" class="flex flex-col gap-4">
+      <h2 class="text-2xl">Lembar spesifikasi, data dari API</h2>
+      <EventSpecSheet :event="eventState.event" />
+    </section>
+
+    <section v-if="filledSample" class="flex flex-col gap-4">
+      <h2 class="text-2xl">Lembar spesifikasi, data contoh terisi</h2>
+      <EventSpecSheet :event="filledSample" />
+    </section>
   </main>
 </template>
