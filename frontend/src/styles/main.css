@@ -20,6 +20,8 @@
   h3 {
     font-family: var(--font-heading);
     font-weight: 700;
+    /* Baris judul diseimbangkan supaya tidak ada satu kata menggantung sendirian di baris pertama atau terakhir. */
+    text-wrap: balance;
   }
 
   :focus-visible {
