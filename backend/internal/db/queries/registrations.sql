@@ -39,3 +39,12 @@ SET full_name = @full_name, email = @email, account_name = @account_name
 WHERE registration_id = (SELECT id FROM registrations WHERE code = @code)
   AND position = @position
 RETURNING *;
+-- name: FirstWaitlisted :one
+-- Ditampilkan CLI setelah pembatalan, supaya admin tahu rombongan mana yang dihubungi berikutnya.
+SELECT r.code, count(a.id) AS attendees
+FROM registrations r
+JOIN attendees a ON a.registration_id = r.id
+WHERE r.status = 'waitlisted'
+GROUP BY r.id, r.code, r.created_at
+ORDER BY r.created_at, r.id
+LIMIT 1;

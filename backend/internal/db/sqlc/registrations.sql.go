@@ -37,6 +37,29 @@ func (q *Queries) FindActiveEmails(ctx context.Context, emails []string) ([]stri
 	return items, nil
 }
 
+const firstWaitlisted = `-- name: FirstWaitlisted :one
+SELECT r.code, count(a.id) AS attendees
+FROM registrations r
+JOIN attendees a ON a.registration_id = r.id
+WHERE r.status = 'waitlisted'
+GROUP BY r.id, r.code, r.created_at
+ORDER BY r.created_at, r.id
+LIMIT 1
+`
+
+type FirstWaitlistedRow struct {
+	Code      string
+	Attendees int64
+}
+
+// Ditampilkan CLI setelah pembatalan, supaya admin tahu rombongan mana yang dihubungi berikutnya.
+func (q *Queries) FirstWaitlisted(ctx context.Context) (FirstWaitlistedRow, error) {
+	row := q.db.QueryRow(ctx, firstWaitlisted)
+	var i FirstWaitlistedRow
+	err := row.Scan(&i.Code, &i.Attendees)
+	return i, err
+}
+
 const getRegistrationByCode = `-- name: GetRegistrationByCode :one
 SELECT id, code, type, status, idempotency_key, consent_at, created_at, status_changed_at FROM registrations WHERE code = $1
 `

@@ -164,3 +164,23 @@ func rowLabel(i int) string {
 	}
 	return fmt.Sprintf("Tamu %d", i)
 }
+
+// ValidateAttendee memakai aturan yang sama dengan formulir, untuk jalur lain seperti CLI admin.
+func ValidateAttendee(a AttendeeRequest) (Attendee, []FieldError) {
+	var errs []FieldError
+	add := func(field, msg string) {
+		errs = append(errs, FieldError{Field: field, Message: msg})
+	}
+
+	out := Attendee{
+		FullName:    strings.TrimSpace(a.FullName),
+		Email:       strings.ToLower(strings.TrimSpace(a.Email)),
+		AccountName: strings.TrimSpace(a.AccountName),
+	}
+	checkText(out.FullName, 100, "full_name", "Nama lengkap", add)
+	checkText(out.AccountName, 50, "account_name", "Nama akun", add)
+	if msg := emailProblem(out.Email); msg != "" {
+		add("email", msg)
+	}
+	return out, errs
+}
