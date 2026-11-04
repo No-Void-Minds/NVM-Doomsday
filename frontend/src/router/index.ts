@@ -25,6 +25,12 @@ const router = createRouter({
       meta: { title: 'Admin Doomsday' },
     },
     {
+      path: '/_komponen',
+      name: 'dev-components',
+      component: () => import('@/pages/DevComponentsPage.vue'),
+      meta: { title: 'Contoh komponen' },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/pages/NotFoundPage.vue'),
