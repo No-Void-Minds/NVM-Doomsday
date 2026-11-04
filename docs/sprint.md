@@ -285,18 +285,62 @@ Keputusan:
 
 ## Sprint 5: Halaman undangan (frontend)
 
-Tujuan: alur pembuka sampai isi surat, sesuai layar Stitch.
+Tujuan: alur pembuka sampai isi undangan dengan identitas visual NVM.
 
-1. Pembuka: varian umum dan varian `?to=`. Tombol "Buka surat panggilan" memicu animasi amplop sekitar 600ms, lalu fokus pindah ke judul isi surat. Tanpa animasi bila reduced motion.
-2. Isi surat: dossier dengan nilai "Menyusul" untuk field kosong, link peta hanya muncul bila `map_url` terisi.
-3. Hitung mundur WIB: teks "Jadwal tayang diumumkan menyusul." bila jadwal kosong, angka bila ada, teks acara sudah berlangsung bila lewat. Tidak diumumkan ke pembaca layar tiap detik.
-4. Panel sisa kursi dari data server, berubah menjadi info daftar tunggu saat penuh.
-5. FAQ dengan teks SRS 3.5, accordion bisa dioperasikan keyboard.
-6. State pendaftaran ditutup dan gagal memuat (dengan "Coba lagi").
-7. Layout desktop dua kolom (kolom kiri menempel saat scroll), bertumpuk di layar sempit.
+0. Identitas NVM: palet dari tema gelap Shopify NVM (`#08090b`, `#0d0f12`, `#e8ebef`, krem `#e8e3d5`), font D-DIN dan JetBrains Mono, tombol utama krem. Oranye dan font Archivo serta IBM Plex dihapus.
+0b. Aset brand dari NVM: logo, favicon, D-DIN woff2 dengan lisensi OFL.
+1. Format tanggal dan jam WIB (`Asia/Jakarta`), isi FAQ yang membaca kapasitas dan batas tamu dari data acara.
+2. Amplop pembuka dengan logo NVM, stempel, dan celah Void gelap di bibir amplop. Animasi sekitar 600 ms, fokus pindah ke judul isi undangan, langsung tanpa animasi bila gerak dikurangi, hanya sekali per sesi.
+3. Lembar spesifikasi acara bergaya label produk NVM, menggantikan dossier. "Menyusul" untuk data kosong, link peta hanya bila ada.
+4. Hitung mundur ke jam tayang dengan bingkai celah Void, tiga keadaan: jadwal kosong, berjalan, sudah dimulai.
+5. Panel sisa kursi, kursi penuh dengan jumlah daftar tunggu, dan pendaftaran ditutup. Diperbarui diam-diam saat tab kembali terlihat.
+6. FAQ, layout satu kolom di bawah 1024px dan dua kolom di atasnya.
 
-Selesai bila: semua layar Stitch untuk bagian ini bisa dicapai di browser dengan data dev, check.sh lulus.
-Referensi: FR-01 sampai FR-08, SRS 4.
+Selesai bila: alur undangan bisa dicapai di browser dengan data dev, check.sh lulus.
+Referensi: FR-01 sampai FR-08, SRS 4, SRS 11.
+
+### Laporan
+
+Status: selesai, 4 November 2026.
+
+Hasil uji:
+- Komponen tampil dengan palet dan font NVM, font dimuat dari server sendiri.
+- Lembar spesifikasi: "Menyusul" pudar dan kalimat penjelasan muncul saat data kosong, tanggal "Jumat, 18 Desember 2026" dan jam "18.15 WIB" serta "19.00 WIB" benar pada data contoh, link peta hanya muncul bila ada URL.
+- Hitung mundur ke `2026-12-16 19:00` menunjukkan 42 hari 1 jam 39 menit pada 4 November 17.21, sesuai perhitungan.
+- FAQ membaca "200 kursi" dan "maksimal 3 orang" dari data acara.
+- Layout dua kolom di layar lebar, satu kolom di HP.
+
+Perubahan dari rencana:
+- Arah desain diganti dari "berkas rahasia" ke bahasa produk NVM, karena desain awal tidak memakai aset brand NVM sama sekali dan pola berkas rahasia terlalu umum. Dossier jadi lembar spesifikasi, kartu akses akan jadi hangtag di Sprint 6. Manajer setuju.
+- Desain baru langsung dikoding, tanpa memperbarui Stitch.
+- Label mono kapital dengan spasi renggang dipakai di lembar spesifikasi, mengikuti gaya label di tema Shopify NVM. Sebelumnya hanya untuk stempel.
+- Celah Void di amplop berupa garis gelap, karena garis krem tidak terlihat di atas kertas krem.
+- Kolom kiri desktop tidak menempel saat digulir: tingginya melebihi layar laptop, dan kolom menempel yang lebih tinggi dari layar menyembunyikan bagian bawahnya.
+- Tombol "Konfirmasi kehadiran" belum dipasang karena formulirnya baru ada di Sprint 6.
+- Judul memakai `text-wrap: balance` supaya tidak ada satu kata menggantung sendirian.
+
+Bentol yang ditemui:
+- `git rm` file TTF ikut menghapus folder `public/fonts`, sehingga commit `2818da4` tidak berisi font woff2 dan halaman sempat memakai font cadangan. Diperbaiki di commit `0f946d6`.
+- GitHub dua kali menjawab Internal Server Error saat push. Commit tetap aman di laptop, push berhasil saat diulang.
+- Workspace asisten tidak bisa membuka arsip RAR, aset dikirim ulang sebagai ZIP.
+
+Catatan data:
+- `show_at` di database diisi perkiraan `2026-12-16 19:00`, berdasarkan pola film Avengers sebelumnya yang tayang di Indonesia hari Rabu sebelum rilis global. Tanggal resmi Indonesia belum diumumkan per 4 November 2026.
+- Database yang dipakai saat development adalah database yang sama dengan yang akan dipakai server.
+
+Dipindah ke Sprint 6:
+- Tombol "Konfirmasi kehadiran" di kolom kiri yang menggulir ke formulir.
+
+Dipindah ke Sprint 8:
+- Sebelum link disebar: isi jadwal resmi atau kosongkan dengan `event set show_at -`, dan pastikan tidak ada data uji tersisa.
+- Pertimbangkan database terpisah untuk development (misalnya `nvm_doomsday_dev`), supaya uji coba tidak menyentuh data asli setelah pendaftaran dibuka.
+
+Dipindah ke Sprint 9:
+- Uji animasi amplop, fokus setelah dibuka, ingatan per sesi, dan versi tanpa animasi.
+- Uji panel kursi saat sebagian terisi, penuh, ada daftar tunggu, dan ditutup, termasuk pembaruan saat tab kembali terlihat.
+
+Dokumen yang perlu diperbarui:
+- SRS bagian 2.2 dan 11 masih menjelaskan konsep berkas rahasia, palet oranye, serta font Archivo dan IBM Plex. Perlu SRS v0.3.
 
 ## Sprint 6: Formulir dan kartu akses (frontend)
 
