@@ -251,14 +251,37 @@ Dipindah ke Sprint 9:
 
 Tujuan: fondasi UI yang dipakai semua halaman.
 
-1. Router: `/` (undangan) dan `/admin`. Parameter `?to=` dibaca, disanitasi, dibatasi 60 karakter.
-2. Klien API di `frontend/src/api/` dengan tipe TypeScript untuk semua respons dan error.
-3. Komponen dasar: Button (primary, outline, text), Field (label, input, pesan error, aria-describedby), Panel, Stamp, VoidSlit, Accordion, Skeleton.
-4. Aturan global: focus ring 2px #E8E2D4 offset 2px lewat `:focus-visible`, tap target minimal 44px, padanan `:active` untuk semua hover, `prefers-reduced-motion`.
-5. Composable `useEvent` dengan state memuat, berhasil, gagal.
+1. Router: `/` (undangan), `/admin` (dimuat terpisah), halaman tidak ditemukan, dan `/_komponen` khusus development. Judul tab per halaman. Parameter `?to=` lewat `useRecipient`: buang karakter kontrol dan penanda arah teks, rapikan spasi, potong 60 karakter Unicode, `?to=` ganda dianggap kosong.
+2. Klien API di `frontend/src/api/`: tipe untuk semua respons dan error, hasil selalu berbentuk `{ok, status, data}` atau `{ok, status, error}`. Batas waktu 15 detik, putus jaringan jadi `network_error`, respons bukan JSON jadi `internal_error`.
+3. Komponen `BaseButton` (primary, outline, text, memuat, nonaktif, lebar penuh), `BaseField` (label, petunjuk, error, `aria-describedby`, `aria-invalid`, fungsi `focus`), `BasePanel`.
+4. Komponen `BaseStamp`, `VoidSlit`, `BaseAccordion` (Enter, Space, Escape, `aria-expanded`, `aria-controls`), `BaseSkeleton`.
+5. Composable `useEvent` dengan state memuat, siap, gagal, plus `reload` dan `refresh` diam-diam.
+6. Halaman `/_komponen` dicek di 320px dan 1440px.
 
 Selesai bila: halaman contoh komponen tampil benar di 320px dan 1440px tanpa scroll horizontal, check.sh lulus.
 Referensi: NFR-01 sampai NFR-03, SRS 11.
+
+### Laporan
+
+Status: selesai, 4 November 2026.
+
+Hasil uji:
+- `?to=` dengan spasi berlebih, tag HTML, penanda arah teks, 80 karakter, dan parameter ganda tampil sesuai aturan sanitasi.
+- `/admin` dimuat sebagai file terpisah, halaman tidak ditemukan bisa kembali ke undangan dengan keyboard.
+- Klien API dari console: event 200, ringkasan tanpa login 401, sandi salah 401, pendaftaran kosong 422 dengan pesan per kolom.
+- Komponen: focus ring terlihat di semua kontrol, kontrol nonaktif dilewati Tab, label memindahkan fokus ke kolomnya, pesan error terbaca sebagai deskripsi kolom, Escape menutup jawaban accordion dan fokus tetap di pertanyaannya, panah accordion tidak berputar saat gerak dikurangi.
+- `useEvent`: memuat, gagal saat backend mati, pulih dengan "Coba lagi", refresh diam-diam mempertahankan data saat gagal dan memperbarui angka saat berhasil.
+- Tidak ada scroll horizontal di 320px dan 1440px.
+- Hasil build produksi tidak memuat halaman `/_komponen` maupun teksnya.
+
+Keputusan:
+- Nama komponen diawali `Base` karena aturan ESLint Vue mewajibkan nama komponen dua kata.
+- Halaman contoh komponen dibuat sejak langkah 3, dan hanya ada di development lewat `import.meta.env.DEV`.
+- Seluruh situs `noindex, nofollow`: undangan disebar lewat link dan halaman admin tidak boleh terindeks.
+- Skeleton tanpa animasi berdenyut, sesuai aturan tidak ada animasi berulang tanpa pemicu pengguna.
+- Accordion memakai tombol, bukan `<details>`, karena `<details>` tidak bisa ditutup dengan Escape.
+- Latar kolom isian memakai `void` supaya tetap terlihat di dalam panel.
+- Kapital dan spasi renggang hanya di
 
 ## Sprint 5: Halaman undangan (frontend)
 
