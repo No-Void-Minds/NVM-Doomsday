@@ -10,9 +10,10 @@ withDefaults(
   { variant: 'primary', type: 'button', loading: false, disabled: false, block: false },
 )
 
-// Oranye sinyal hanya untuk tombol utama (SRS 11.3). Setiap efek hover punya padanan :active untuk layar sentuh.
+// Tombol utama memakai krem NVM dengan teks hitam (15,54:1), satu-satunya bidang terang di halaman gelap.
+// Setiap efek hover punya padanan :active untuk layar sentuh.
 const variantClass = {
-  primary: 'min-h-12 bg-signal px-5 text-void hover:brightness-110 active:brightness-95',
+  primary: 'min-h-12 bg-paper px-5 text-void hover:bg-fg active:bg-fg',
   outline:
     'min-h-12 border border-line px-5 text-fg hover:border-paper hover:bg-panel active:border-paper active:bg-panel',
   text: 'min-h-11 px-2 text-fg underline underline-offset-4 hover:text-fg-muted active:text-fg-muted',

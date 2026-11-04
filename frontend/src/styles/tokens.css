@@ -1,24 +1,30 @@
 @theme {
-  /* Palet bawaan Tailwind dimatikan supaya cuma warna yang lolos cek kontras SRS 11.3 yang bisa dipakai. */
+  /* Palet bawaan Tailwind dimatikan supaya hanya warna yang sudah dicek kontrasnya yang bisa dipakai. */
   --color-*: initial;
 
-  --color-void: #0b0b0d;
-  --color-panel: #17171b;
-  --color-fg: #edeae3;
-  --color-fg-muted: #a3a09a;
-  --color-paper: #e8e2d4;
-  --color-ink: #1c1a17;
-  --color-ink-faded: #5c564b;
+  /* Diambil dari tema gelap Shopify NVM supaya halaman ini terasa satu keluarga dengan toko. */
+  --color-void: #08090b;
+  --color-panel: #0d0f12;
+  --color-fg: #e8ebef;
+  --color-fg-muted: #8a909a;
+
+  /* Krem pita ticker NVM, dipakai untuk benda kertas: amplop, lembar spesifikasi, hangtag. */
+  --color-paper: #e8e3d5;
+  --color-ink: #1a1c20;
+  --color-ink-faded: #5f5a4e;
   --color-stamp: #b3261e;
-  --color-signal: #ff5a36;
-  --color-line: #77736c;
+
+  /* Garis tema Shopify (#333a44) hanya 1,74:1, terlalu samar untuk batas kolom isian. Nilai ini 4,05:1 di latar. */
+  --color-line: #6b717b;
+
   --color-error: #ff8a73;
-  --color-ok: #7fd49a;
+  /* Hijau penanda "live" di tema Shopify NVM, 12,8:1 di panel. */
+  --color-ok: #9be3b0;
   --color-wait: #f2c14e;
 
-  --font-heading: 'Archivo Narrow', 'Arial Narrow', sans-serif;
-  --font-body: 'Archivo Variable', Arial, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-heading: 'D-DIN', system-ui, sans-serif;
+  --font-body: 'D-DIN', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
   /* Batas bawah untuk layar 320px, batas atas tercapai sekitar lebar 1280px. */
   --text-display: clamp(2.25rem, 1.6rem + 3vw, 4rem);
