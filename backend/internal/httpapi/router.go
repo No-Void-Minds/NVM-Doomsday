@@ -57,6 +57,8 @@ func NewRouter(cfg config.Config, deps Deps) (*gin.Engine, error) {
 	authed := admin.Group("", requireAdmin(cfg))
 	// Dipakai frontend untuk memutuskan menampilkan form masuk atau ringkasan.
 	authed.GET("/session", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	authed.GET("/summary", summaryHandler(deps))
+	authed.GET("/export", exportHandler(deps))
 
 	return r, nil
 }
