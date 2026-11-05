@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed, useId, useTemplateRef } from 'vue'
+import { toPng } from 'html-to-image'
+import { computed, ref, useId, useTemplateRef } from 'vue'
 
 import type { RegistrationResult } from '@/api/types'
+import BaseButton from '@/components/BaseButton.vue'
 import BaseStamp from '@/components/BaseStamp.vue'
+import { copyText } from '@/lib/clipboard'
 import { formatDateWIB, formatTimeWIB } from '@/lib/datetime'
 
 const props = defineProps<{
@@ -13,6 +16,7 @@ const props = defineProps<{
 
 const titleId = useId()
 const heading = useTemplateRef<HTMLHeadingElement>('heading')
+const capture = useTemplateRef<HTMLDivElement>('capture')
 
 // Dipanggil halaman setelah pendaftaran berhasil, supaya halaman bergulir ke kartu dan pembaca layar membacakannya.
 defineExpose({ focus: () => heading.value?.focus() })
@@ -24,6 +28,59 @@ const schedule = computed(() => {
   const time = formatTimeWIB(props.showAt)
   return date && time ? `${date}, ${time}` : 'Menyusul'
 })
+
+const saving = ref(false)
+const previewUrl = ref<string | null>(null)
+const saveError = ref<string | null>(null)
+
+async function saveCard() {
+  if (!capture.value || saving.value) {
+    return
+  }
+  saving.value = true
+  saveError.value = null
+  const fileName = `nvm-doomsday-${props.result.code}.png`
+
+  try {
+    // pixelRatio 2 supaya kode tetap tajam saat gambar diperbesar di HP.
+    const dataUrl = await toPng(capture.value, { pixelRatio: 2, backgroundColor: '#08090b' })
+    const blob = await (await fetch(dataUrl)).blob()
+    const file = new File([blob], fileName, { type: 'image/png' })
+
+    // Menu bagikan bawaan HP hanya tersedia di HTTPS. Di sana pendaftar bisa langsung memilih "Simpan gambar".
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Kartu akses No Void Minds Doomsday' })
+      return
+    }
+
+    const link = document.createElement('a')
+    link.href = dataUrl
+    link.download = fileName
+    link.click()
+    // Browser bawaan WhatsApp dan Instagram sering mengabaikan unduhan, jadi gambarnya juga ditampilkan
+    // supaya bisa disimpan dengan tekan lama.
+    previewUrl.value = dataUrl
+  } catch (err) {
+    // Pendaftar menutup menu bagikan tanpa memilih apa pun. Itu bukan kegagalan.
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      return
+    }
+    saveError.value = 'Gambar kartu gagal dibuat. Screenshot layar ini sebagai gantinya.'
+  } finally {
+    saving.value = false
+  }
+}
+
+const copyStatus = ref<'idle' | 'copied' | 'failed'>('idle')
+let copyTimer: number | undefined
+
+async function copyCode() {
+  copyStatus.value = (await copyText(props.result.code)) ? 'copied' : 'failed'
+  window.clearTimeout(copyTimer)
+  if (copyStatus.value === 'copied') {
+    copyTimer = window.setTimeout(() => (copyStatus.value = 'idle'), 2500)
+  }
+}
 </script>
 
 <template>
@@ -41,9 +98,11 @@ const schedule = computed(() => {
       </p>
     </div>
 
-    <!-- Hangtag: label karton yang tergantung di pakaian NVM. Takik dan lubang berwarna void supaya terlihat
-         berlubang, jadi kartu harus selalu diletakkan di atas latar void, bukan di dalam panel. -->
-    <div class="mx-auto w-full max-w-sm">
+    <!-- Wadah ini yang digambar jadi PNG. Latar void dan padding ikut terekam, supaya takik dan bayangan
+         kartu terlihat sama seperti di layar. -->
+    <div ref="capture" class="mx-auto w-full max-w-sm bg-void p-4">
+      <!-- Hangtag: label karton yang tergantung di pakaian NVM. Takik dan lubang berwarna void supaya terlihat
+           berlubang, jadi kartu harus selalu diletakkan di atas latar void, bukan di dalam panel. -->
       <article class="relative rounded-paper bg-paper px-6 pb-6 pt-12 text-ink shadow-paper">
         <span
           class="absolute left-1/2 top-4 size-4 -translate-x-1/2 rounded-full bg-void ring-2 ring-ink/20"
@@ -87,7 +146,9 @@ const schedule = computed(() => {
             <dt class="font-mono text-xs uppercase tracking-[0.08em] text-ink-faded">Peserta</dt>
             <dd>
               <ul>
-                <li v-for="name in result.attendees" :key="name" class="break-words">{{ name }}</li>
+                <li v-for="name in result.attendees" :key="name" class="break-words">
+                  {{ name }}
+                </li>
               </ul>
             </dd>
           </div>
@@ -101,6 +162,34 @@ const schedule = computed(() => {
           </div>
         </dl>
       </article>
+    </div>
+
+    <div class="mx-auto flex w-full max-w-sm flex-col gap-3">
+      <BaseButton block :loading="saving" @click="saveCard">
+        {{ saving ? 'Membuat gambar...' : 'Simpan kartu akses' }}
+      </BaseButton>
+      <BaseButton variant="outline" block @click="copyCode">
+        {{ copyStatus === 'copied' ? 'Kode tersalin' : 'Salin kode' }}
+      </BaseButton>
+
+      <!-- Wadah status selalu ada supaya pembaca layar mengumumkan perubahannya. -->
+      <div role="status" class="text-sm">
+        <p v-if="copyStatus === 'failed'" class="text-error">
+          Kode tidak bisa disalin otomatis. Tulis atau screenshot kode di atas.
+        </p>
+        <p v-if="saveError" class="text-error">{{ saveError }}</p>
+      </div>
+
+      <figure v-if="previewUrl" class="mt-2 flex flex-col gap-2">
+        <img
+          :src="previewUrl"
+          alt="Gambar kartu akses yang siap disimpan"
+          class="w-full rounded-paper"
+        />
+        <figcaption class="text-sm text-fg-muted">
+          Kalau unduhan tidak berjalan, tekan lama gambar ini lalu pilih simpan gambar.
+        </figcaption>
+      </figure>
     </div>
   </section>
 </template>
