@@ -8,6 +8,8 @@ import type {
   RegistrationRequest,
   RegistrationResult,
   AccountCheckResult,
+  VipAddResult,
+  VipAccount,
 } from './types'
 
 // Lebih lama dari waktu wajar pendaftaran di jaringan seluler yang lemah, tapi cukup pendek supaya
@@ -22,7 +24,7 @@ const MESSAGES: Record<'network_error' | 'timeout' | 'internal_error' | 'rate_li
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PATCH'
   body?: string
   headers?: Record<string, string>
 }
@@ -59,9 +61,13 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<A
   return { ok: false, status: res.status, error: toApiError(body, res.status) }
 }
 
-function postJSON<T>(path: string, payload: unknown): Promise<ApiResult<T>> {
+function sendJSON<T>(
+  path: string,
+  payload: unknown,
+  method: 'POST' | 'PATCH' = 'POST',
+): Promise<ApiResult<T>> {
   return request<T>(path, {
-    method: 'POST',
+    method,
     // Backend menolak kiriman yang bukan JSON (415), sebagai pengganti pemeriksaan CORS.
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -102,12 +108,16 @@ function isFieldError(v: unknown): v is FieldError {
 export const api = {
   getEvent: () => request<EventInfo>('/api/event'),
   checkAccount: (accountName: string) =>
-    postJSON<AccountCheckResult>('/api/account-check', { account_name: accountName }),
-  register: (req: RegistrationRequest) => postJSON<RegistrationResult>('/api/registrations', req),
-  adminLogin: (password: string) => postJSON<void>('/api/admin/login', { password }),
+    sendJSON<AccountCheckResult>('/api/account-check', { account_name: accountName }),
+  register: (req: RegistrationRequest) => sendJSON<RegistrationResult>('/api/registrations', req),
+  adminLogin: (password: string) => sendJSON<void>('/api/admin/login', { password }),
   adminLogout: () => request<void>('/api/admin/logout', { method: 'POST' }),
   adminSession: () => request<void>('/api/admin/session'),
   adminSummary: () => request<AdminSummary>('/api/admin/summary'),
+  adminVipList: () => request<{ accounts: VipAccount[] }>('/api/admin/vip'),
+  adminVipAdd: (names: string[]) => sendJSON<VipAddResult>('/api/admin/vip', { names }),
+  adminVipSetActive: (id: string, active: boolean) =>
+    sendJSON<void>(`/api/admin/vip/${encodeURIComponent(id)}`, { is_active: active }, 'PATCH'),
 }
 
 // Unduhan memakai link biasa, bukan fetch, supaya browser menangani file dan nama dari Content-Disposition.

@@ -56,6 +56,22 @@ export interface AdminSummary {
   cancelled_registrations: number
 }
 
+export interface VipAccount {
+  id: string
+  account_name: string
+  is_active: boolean
+  // Kode registrasi yang belum batal dan memakai nama ini. null kalau belum dipakai.
+  registration_code: string | null
+  created_at: string
+}
+
+export interface VipAddResult {
+  added: string[]
+  reactivated: string[]
+  existing: string[]
+  rejected: { account_name: string; message: string }[]
+}
+
 // Kode dari backend, ditambah dua kode yang hanya muncul di sisi browser (network_error, timeout).
 export type ErrorCode =
   | 'validation_failed'

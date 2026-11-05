@@ -7,6 +7,7 @@ import BaseButton from '@/components/BaseButton.vue'
 import BaseField from '@/components/BaseField.vue'
 import BasePanel from '@/components/BasePanel.vue'
 import BaseSkeleton from '@/components/BaseSkeleton.vue'
+import VipList from '@/components/admin/VipList.vue'
 
 type View = 'checking' | 'login' | 'ready'
 type SummaryState =
@@ -226,6 +227,7 @@ async function logout() {
           <p v-if="actionError" class="mt-4 text-sm text-error">{{ actionError }}</p>
         </div>
       </BasePanel>
+      <VipList @unauthorized="toLogin" />
     </div>
   </main>
 </template>
