@@ -9,8 +9,8 @@ Rencana kerja landing page undangan nonton bareng Avengers: Doomsday untuk No Vo
 
 - Satu langkah dikerjakan sampai jalan, baru lanjut ke langkah berikutnya.
 - Setiap langkah selesai: `./scripts/check.sh && git commit && git push`.
-- Pengujian menyeluruh dilakukan di Sprint 10 setelah semua fitur selesai. Sampai saat itu, `check.sh` menjaga format, lint, type check, dan em dash.
-- Uji yang ditunda dari setiap sprint dikumpulkan di checklist Sprint 10.
+- `check.sh` menjaga format, lint, type check, staticcheck, unit test Go, Vitest, dan em dash. Integration test dan E2E butuh database uji, jadi dijalankan terpisah lewat `scripts/test-integration.sh` dan `scripts/test-e2e.sh`.
+- Test boleh ditulis dan dijalankan Claude Code, tapi commit dan push selalu dikerjakan sendiri.
 - Status: `belum`, `jalan`, `selesai`, `tertahan` (menunggu keputusan).
 
 ## Ringkasan status
@@ -27,7 +27,7 @@ Rencana kerja landing page undangan nonton bareng Avengers: Doomsday untuk No Vo
 | 7 | Halaman admin | selesai | 5 Nov 2026 |
 | 8 | Docker dan deploy LAN | selesai | 5 Nov 2026 |
 | 9 | Revisi: cek nama akun VIP dan aset Doomsday | selesai | 5 Nov 2026 |
-| 10 | Pengujian menyeluruh | belum | |
+| 10 | Pengujian menyeluruh | selesai | 5 Nov 2026 |
 | 11 | Rilis publik lewat Cloudflare Tunnel | tertahan | |
 
 ## Stack
@@ -38,6 +38,7 @@ Rencana kerja landing page undangan nonton bareng Avengers: Doomsday untuk No Vo
 | Frontend (`frontend/`) | Vue 3.5, TypeScript, Vite 8, Tailwind v4, Vue Router, html-to-image. Tanpa Pinia, state cukup di composable |
 | Font | D-DIN (woff2 di `public/fonts`, lisensi OFL) dan JetBrains Mono (@fontsource), semua di-host sendiri |
 | Database | PostgreSQL 18 di container `nvm-internal-postgres` di VM `nvm-server`. Database `nvm_doomsday`, role `doomsday_migrator` (pemilik, hanya untuk migrasi) dan `doomsday_app` (backend dan CLI, hanya SELECT, INSERT, UPDATE) |
+| Test | Go `testing` (unit, integration dengan tag `integration`), staticcheck v0.8.2, Vitest 5.1.0, Playwright 1.64.1 dengan Chromium, @axe-core/playwright 4.14.0 |
 | Deploy | Docker Compose di VM, akses LAN `http://192.168.68.144:8090` |
 
 ## Struktur repo
@@ -57,6 +58,7 @@ nvm-doomsday/
       export/            CSV dan XLSX
       httpapi/
       registration/      pendaftaran, cek nama akun VIP
+      testdb/            helper database uji, menolak database yang tidak berakhiran _test
       timezone/          WIB sebagai offset tetap
       vip/               pengelolaan daftar akun VIP
     migrations/
@@ -77,6 +79,7 @@ nvm-doomsday/
       pages/
       router/
       styles/
+    e2e/                 test Playwright
     Dockerfile
     nginx.conf
   deploy/
@@ -87,6 +90,10 @@ nvm-doomsday/
   scripts/
     check.sh
     dev-db-tunnel.sh
+    test-env.sh
+    test-integration.sh
+    test-e2e.sh
+  testdata/              kasus uji bersama Go dan Vitest
 ```
 
 Backend dan frontend tidak saling import. Satu-satunya kontrak di antara keduanya adalah API di SRS bagian 7.
@@ -98,6 +105,7 @@ Backend dan frontend tidak saling import. Satu-satunya kontrak di antara keduany
 | Backend | 127.0.0.1:8081 | 8080 di dalam container, tidak dibuka ke host |
 | Frontend | 127.0.0.1:5174 (Vite, proxy `/api` ke 8081) | 0.0.0.0:8090 (Nginx) |
 | Postgres | 127.0.0.1:15432 lewat SSH tunnel | `nvm-internal-postgres:5432` di network `nvm-internal_default` |
+| Database uji | `nvm_doomsday_test` lewat tunnel yang sama | tidak dipakai server |
 
 Port 8081 dan 5174 dipilih agar tidak bentrok dengan NVM-Internal (8080, 5173). Port 8092 di VM dipakai compro.
 
@@ -622,23 +630,96 @@ Rencana:
 
 Checklist uji yang ditunda dari sprint sebelumnya:
 
-| Asal | Uji |
-|---|---|
-| Sprint 1 | Health 503 saat database putus, pulih tanpa restart, gagal di awal saat database tidak terjangkau |
-| Sprint 1 | Membatalkan registrasi membuat email pesertanya bisa dipakai lagi (lewat integration test) |
-| Sprint 5 | Animasi amplop, fokus setelah dibuka, ingatan per sesi, versi tanpa animasi |
-| Sprint 5 | Panel kursi sebagian terisi, penuh, ada daftar tunggu, ditutup, termasuk pembaruan saat tab kembali terlihat |
-| Sprint 6 | Keyboard penuh formulir: tombol panah di pilihan, tambah dan hapus tamu, fokus setelah gagal dan berhasil |
-| Sprint 6 | Idempotency key dari HP: kirim, putuskan jaringan, kirim ulang, kode sama |
-| Sprint 7 | Kirim kosong, sandi salah, batas 5 percobaan, muat ulang tetap masuk, cookie dihapus lalu unduh kembali ke form, keluar, rekap kosong, keyboard saja di 320px |
-| Sprint 7 | Unduhan admin di Chrome Android dan Safari iOS |
-| Sprint 8 | Uji pemulihan backup dengan data peserta, termasuk prosedur pulih produksi di database uji |
-| Sprint 9 | Dua tab mengirim nama VIP yang sama: satu dapat kartu, yang lain kembali ke langkah 1 dengan pesan sudah terdaftar |
-| Sprint 9 | Alur Solo dan VIP dari HP lewat LAN setelah deploy Sprint 9, termasuk admin produksi dan Daftar VIP |
-| Sprint 9 | Pembaca layar: tombol Nonaktifkan membacakan nama akun, laporan tambah nama diumumkan |
-| Sprint 9 | Pertimbangkan `staticcheck` di `check.sh`, karena `go vet` tidak menangkap error yang tidak dicek seperti di `cmd/server/main.go` |
+| Asal | Uji | Hasil |
+|---|---|---|
+| Sprint 1 | Health 503 saat database putus, pulih tanpa restart, gagal di awal saat database tidak terjangkau | lulus, `health_integration_test.go` dan `cmd/server` |
+| Sprint 1 | Membatalkan registrasi membuat email pesertanya bisa dipakai lagi | lulus, integration test |
+| Sprint 5 | Animasi amplop, fokus setelah dibuka, ingatan per sesi, versi tanpa animasi | lulus, `undangan.spec.ts` |
+| Sprint 5 | Panel kursi sebagian terisi, penuh, ada daftar tunggu, ditutup, pembaruan saat tab kembali terlihat | lulus, `undangan.spec.ts` |
+| Sprint 6 | Keyboard penuh formulir, tambah dan hapus tamu, fokus setelah gagal dan berhasil | lulus setelah perbaikan bentol 2, `keyboard.spec.ts` dan `formulir.spec.ts` |
+| Sprint 6 | Idempotency key: jawaban hilang, kirim ulang, kode sama | lulus, `formulir.spec.ts` |
+| Sprint 7 | Kirim kosong, sandi salah, batas 5 percobaan, sesi habis saat unduh, keluar, rekap kosong, keyboard di 320px | lulus, `admin.spec.ts` dan `keyboard.spec.ts` |
+| Sprint 7 | Unduhan admin di Chrome Android dan Safari iOS | Android lulus manual, Safari iOS belum |
+| Sprint 8 | Uji pemulihan backup dengan data, prosedur pulih produksi | lulus, lihat hasil uji di bawah |
+| Sprint 9 | Dua tab mengirim nama VIP yang sama | lulus, `formulir.spec.ts` |
+| Sprint 9 | Alur Solo dan VIP dari HP lewat LAN setelah deploy Sprint 9 | lulus manual di Android Chrome dan Firefox |
+| Sprint 9 | Pembaca layar di Daftar VIP | axe tanpa pelanggaran. Pembaca layar sungguhan belum diuji |
+| Sprint 9 | `staticcheck` di `check.sh` | dipasang, v0.8.2 |
 
 Selesai bila: semua checklist lulus, tidak ada bentol terbuka berprioritas M.
+
+### Laporan
+
+Status: selesai, 5 November 2026. Commit `abaeb8f` (revisi teks), `7588324` (perbaikan), `18ef2fa` (test).
+
+Cara kerja:
+- Test ditulis dan dijalankan Claude Code di PC. Aturannya: hanya file test, config test, dan script test. Bentol di aplikasi dilaporkan tanpa diperbaiki, ekspektasi test tidak boleh dilonggarkan, dan hanya database `nvm_doomsday_test` yang boleh disentuh.
+- Commit, push, reset, dan checkout dikunci di `.claude/settings.local.json`. Perbaikan aplikasi dan commit dikerjakan sendiri.
+- Database uji `nvm_doomsday_test` dibuat terpisah dengan role yang sama. `ALTER DEFAULT PRIVILEGES` diulang di database itu, karena pengaturan ini berlaku per database.
+
+Hasil test (setelah perbaikan):
+
+| Kelompok | Isi | Hasil |
+|---|---|---|
+| A. Unit Go | registration, adminauth, export, config, httpapi tanpa database, penjaga testdb | semua lulus |
+| B. Kasus bersama | 25 kasus normalisasi dan 18 validasi di `testdata/`, dibaca Go dan Vitest | Go 43 lulus. Vitest lulus, `İ` dan `Σ` dilewati sebagai khusus Go |
+| C. Integration Go | kode respons SRS 7, idempotency, email unik, VIP sekali pakai, API admin VIP, health, CLI | semua lulus |
+| D. Uji balapan | 20 pendaftar serentak dengan kapasitas 5, 10 rebutan satu nama VIP | 5 terkonfirmasi dan 15 daftar tunggu bernomor 1 sampai 15. Tepat 1 yang dapat nama VIP |
+| E. Vitest | validasi, uuid, useRecipient, pemetaan error klien API | 88 lulus, 2 dilewati |
+| F. Playwright E2E | 84 test: alur undangan, formulir dua langkah, kartu, admin, keyboard, axe, 6 lebar layar, gambar samping | 84 lulus |
+| G. Script | env kosong, database bukan `_test`, tunnel mati, port terpakai | 4 skenario berhenti dengan pesan jelas |
+| Uji pemulihan | backup produksi dipulihkan ke `nvm_doomsday_test` sebagai `doomsday_migrator` dengan `--clean`, tanpa `--no-privileges` | Jumlah baris sama dengan produksi. `doomsday_app` bisa SELECT, DELETE ditolak |
+| Uji manual | Android Chrome dan Firefox lewat LAN | lulus |
+
+Bentol yang ditemukan test dan diperbaiki di `7588324`:
+
+| # | Bentol | Perbaikan |
+|---|---|---|
+| 1 | Tempelan `@ @budi` di Daftar VIP menjawab 500 dan menggagalkan nama lain di tempelan yang sama, karena `@` di depan hanya dibuang sekali dan kuncinya ditolak CHECK | `NormalizeAccount` membuang `@`, spasi, dan BOM di depan sekaligus. Tolakan CHECK dari database masuk ke daftar `rejected` per nama |
+| 2 | Fokus tidak kembali ke kolom setelah sandi salah atau nama VIP terpakai, karena `focus()` dipanggil saat kolom masih `disabled` | `await nextTick()` sebelum `focus()` di `AdminPage.vue` dan `RegistrationForm.vue` |
+| 3 | Browser menerima email seperti `budi..santoso@email.com` yang ditolak server, sehingga memakai jatah rate limit | Regex email disamakan dengan aturan `mail.ParseAddress` untuk alamat polos |
+| 4 | Normalisasi Go dan JavaScript berbeda untuk BOM dan NEL | Kedua sisi membuang BOM dan NEL. `İ` dan `Σ` tetap berbeda dan ditandai khusus Go, karena huruf kecil yang menentukan VIP hanya dihitung di backend |
+| 5 | `:key` daftar peserta dan daftar nama ditolak memakai nama, sehingga bisa bentrok | Pakai indeks, karena kedua daftar hanya ditampilkan |
+| 6 | staticcheck S1016 di `registration/admin.go` | `AttendeeRequest(before)` |
+
+Revisi teks dari manajer (`abaeb8f`):
+- Kalimat "Pendaftaran ini untuk kamu sendiri." di formulir Solo dihapus, karena terdengar membedakan. Keterangan VIP tetap ada.
+- FAQ tinggal tiga pertanyaan: siapa yang boleh daftar, biaya, dan jam datang.
+
+Delivery Gate AntiSlop:
+
+| Poin | Hasil | Bukti |
+|---|---|---|
+| Tanpa em dash | PASS | cek em dash di `check.sh` |
+| Tanpa scroll horizontal | PASS | `tampilan.spec.ts`, 42 kombinasi keadaan dan lebar dari 320 sampai 1440 px |
+| Tap target minimal 44x44 px | PASS | `tampilan.spec.ts`, 42 kombinasi |
+| Kontras WCAG AA | PASS | axe-core di 42 kombinasi, tanpa pelanggaran |
+| Keyboard penuh, focus terlihat | PASS | `keyboard.spec.ts` di 320 px, outline 2px dicek |
+| Fokus setelah error | PASS | setelah perbaikan bentol 2 |
+| State kosong, memuat, gagal | PASS | "detail acara gagal dimuat" dan rekap kosong |
+| Fakta tidak dikarang | PASS dengan catatan | jadwal tayang masih perkiraan dan aset masih ilustrasi bertanda "sementara", keduanya masuk daftar sebelum link disebar |
+| FAQ spesifik produk | PASS | tiga pertanyaan, jam kumpul dibaca dari data acara |
+| Link navigasi menuju tempat yang ada | PASS dengan catatan | Hanya ada dua tujuan: `#formulir` dan halaman tidak ditemukan (dicek di `tampilan.spec.ts`). Link `#formulir` belum punya test khusus |
+| Toggle tema | tidak berlaku | situs hanya mode gelap, dipilih sejak SRS |
+| Console tanpa error | PASS | fixture di 84 test E2E |
+
+Bentol dan catatan proses:
+- Claude Code berhenti dua kali untuk bertanya: env database uji belum diisi, dan port 8081 serta 5174 masih dipakai backend dan Vite dev. Keduanya memang perlu keputusan manusia.
+- Baris `TEST_` di `backend/.env` sempat tertulis dua kali karena perintah penambahan dijalankan saat barisnya sudah ada.
+- Produksi sempat terlihat kosong (0 registrasi, padahal sebelumnya 1). Dilacak lewat `pg_stat_user_tables`: `n_tup_del` sama dengan `n_tup_ins`, artinya terhapus oleh `DELETE` manual saat bersih-bersih. Test memakai `TRUNCATE`, dan kedua URL test terbukti mengarah ke `nvm_doomsday_test`.
+- Build frontend di VM jadi sekitar 32 detik karena `npm ci` ikut memasang Vitest dan Playwright. Image akhir tidak terpengaruh, karena yang disalin hanya `dist`.
+
+Belum diuji:
+- Safari iOS dan browser bawaan WhatsApp atau Instagram, karena butuh perangkat sungguhan.
+- Pembaca layar sungguhan. axe hanya memeriksa label dan ARIA.
+
+Menjalankan test:
+
+| Kelompok | Perintah |
+|---|---|
+| Unit Go dan Vitest | `./scripts/check.sh` |
+| Integration dan uji balapan | `./scripts/test-integration.sh`, atau `./scripts/test-integration.sh -run TestBalapan -v` |
+| E2E | matikan backend dan Vite dev, tunnel tetap menyala, lalu `./scripts/test-e2e.sh`. Satu file: `./scripts/test-e2e.sh e2e/admin.spec.ts` |
 
 ---
 
@@ -646,14 +727,14 @@ Selesai bila: semua checklist lulus, tidak ada bentol terbuka berprioritas M.
 
 Tujuan: link bisa dibuka affiliator dari luar kantor.
 
-1. Tentukan domain atau subdomain.
+1. Subdomain: `letter.novoidminds.com` diusulkan, menunggu persetujuan manajer.
 2. Cloudflare Tunnel ke `doomsday-frontend`, HTTPS dari Cloudflare.
 3. IP asli pengunjung dari `CF-Connecting-IP`, hanya dipercaya dari gateway tunnel (pola yang sama dengan compro).
 4. `COOKIE_SECURE=true`.
 5. Pertimbangkan membatasi `/admin` lewat Cloudflare Zero Trust.
 6. Uji menu bagikan bawaan HP untuk simpan kartu dan Clipboard API, yang hanya aktif di HTTPS.
 
-Tertahan sampai: domain dipilih.
+Tertahan sampai: subdomain disetujui.
 
 ---
 
@@ -665,7 +746,7 @@ Tertahan sampai: domain dipilih.
 | Bioskop, kota, studio, link peta | `doomsday-admin event set ...` |
 | Kapasitas 200 dan pendaftaran terbuka | `doomsday-admin event show` |
 | Data uji terhapus | Dihapus sebagai `doomsday_migrator`, karena `doomsday_app` tidak punya DELETE. Backup dulu sebelum menghapus |
-| Daftar VIP final dari NVM | Halaman admin, bagian Daftar VIP |
+| Daftar VIP final dari NVM | Halaman admin, bagian Daftar VIP. Nama uji `rifky` dinonaktifkan atau tetap kalau memang VIP |
 | Aset Doomsday | Ganti ilustrasi sementara dengan materi resmi, atau tetap pakai ilustrasi dan hapus keterangan "Ilustrasi sementara" |
 | Database dev terpisah | Putuskan `nvm_doomsday_dev` untuk development, supaya uji coba tidak menyentuh data asli |
 | Kontak admin di FAQ | Isi teks FAQ |
@@ -679,7 +760,7 @@ Tertahan sampai: domain dipilih.
 | Batas akhir pendaftaran | Kolom deadline atau tutup manual |
 | Perlu identitas saat hari H | Teks FAQ dan kartu akses |
 | Kontak admin untuk FAQ | Teks FAQ dan pesan nama VIP sudah dipakai |
-| Domain | Sprint 11 |
+| Subdomain (`letter.novoidminds.com` diusulkan) | Sprint 11 |
 | Lama penyimpanan data setelah acara | Prosedur hapus data dan backup |
 | Batas jumlah daftar tunggu | Aturan pendaftaran (saat ini tanpa batas) |
 | Materi visual resmi Avengers: Doomsday boleh dipakai atau tidak | Isi `src/content/assets.ts` |
