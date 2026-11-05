@@ -275,12 +275,8 @@ function onSubmit() {
             </p>
             <BaseButton variant="text" @click="changeAccount()">Ganti nama akun</BaseButton>
           </div>
-          <p class="text-sm" :class="type === 'vip' ? 'text-fg' : 'text-fg-muted'">
-            {{
-              type === 'vip'
-                ? `Nama akun ini ada di daftar VIP. Kamu boleh membawa sampai ${maxGuests} tamu.`
-                : 'Pendaftaran ini untuk kamu sendiri.'
-            }}
+          <p v-if="type === 'vip'" class="text-sm">
+            Nama akun ini ada di daftar VIP. Kamu boleh membawa sampai {{ maxGuests }} tamu.
           </p>
         </div>
 
