@@ -26,7 +26,7 @@ Rencana kerja landing page undangan nonton bareng Avengers: Doomsday untuk No Vo
 | 6 | Formulir dan kartu akses | selesai | 5 Nov 2026 |
 | 7 | Halaman admin | selesai | 5 Nov 2026 |
 | 8 | Docker dan deploy LAN | selesai | 5 Nov 2026 |
-| 9 | Revisi: cek nama akun VIP dan aset Doomsday | belum | |
+| 9 | Revisi: cek nama akun VIP dan aset Doomsday | selesai | 5 Nov 2026 |
 | 10 | Pengujian menyeluruh | belum | |
 | 11 | Rilis publik lewat Cloudflare Tunnel | tertahan | |
 
@@ -56,20 +56,23 @@ nvm-doomsday/
         sqlc/            hasil generate, jangan diedit manual
       export/            CSV dan XLSX
       httpapi/
-      registration/
+      registration/      pendaftaran, cek nama akun VIP
       timezone/          WIB sebagai offset tetap
+      vip/               pengelolaan daftar akun VIP
     migrations/
     Dockerfile
     sqlc.yaml
     .env.example
   frontend/
     public/              brand, fonts, favicon
+      doomsday/          aset Doomsday di sisi kiri dan kanan layar lebar
     src/
       api/
       components/
+        admin/
         invite/
       composables/
-      content/           isi FAQ
+      content/           isi FAQ dan daftar aset
       lib/               tanggal, validasi, uuid, clipboard
       pages/
       router/
@@ -541,6 +544,65 @@ Rencana:
 
 Selesai bila: nama VIP menghasilkan formulir VIP, nama lain menghasilkan Solo, nama VIP kedua kalinya ditolak, admin bisa mengelola daftar dari browser, aset tampil dari folder, semuanya jalan di VM, `check.sh` lulus.
 
+### Laporan
+
+Status: selesai, 5 November 2026. Commit `497b564`, `12dd797`, `a9fdb90`, `b38fd42`, `5343dc6`, `70bdc06`.
+
+Yang dikerjakan:
+
+| Bagian | Hasil |
+|---|---|
+| Database | Migrasi 0004: tabel `vip_accounts` (`account_name` seperti diketik admin, `account_key` ternormalisasi dan unik), kolom `registrations.vip_account_id`, index unik parsial untuk registrasi yang belum batal, CHECK Solo tanpa akun VIP |
+| API publik | `POST /api/account-check` menjawab `vip`, `solo`, atau 409 `account_taken`, dengan rate limit 20 beruntun lalu 1 per 3 detik. `POST /api/registrations` tidak lagi membaca `type` |
+| API admin | `GET`, `POST`, dan `PATCH /api/admin/vip` untuk melihat, menambah satu atau banyak nama, dan menonaktifkan atau mengaktifkan lagi |
+| CLI | `vip list`, `vip add <nama>...`, `vip off <nama>`, `vip on <nama>` |
+| Undangan | Formulir dua langkah: nama akun dulu, lalu formulir VIP (0 sampai 3 tamu) atau Solo. Nama akun pendaftar dikunci, dengan tombol "Ganti nama akun". FAQ ditambah pertanyaan nama VIP yang terbaca Solo |
+| Admin | Panel "Daftar VIP": tambah lewat tempel dari Excel, laporan per kelompok, cari, nonaktifkan, status pemakaian per nama |
+| Aset | Ilustrasi orisinal studio bioskop di sisi kiri dan kanan layar mulai 1360px, dengan keterangan "Ilustrasi sementara". Daftar aset di `src/content/assets.ts` |
+
+Hasil uji:
+
+| Uji | Hasil |
+|---|---|
+| Migrasi 0004 `up`, `down 1`, `up` | Bersih. Izin `doomsday_app` di `vip_accounts` hanya INSERT, SELECT, UPDATE |
+| CHECK `account_key` | Huruf besar dan awalan `@` ditolak database |
+| CHECK Solo dengan `vip_account_id` | Ditolak database |
+| Normalisasi | `ujivip` dan ` @UjiVIP ` sama-sama `vip`. Kosong dan `@@` 422 |
+| Nama bukan VIP membawa tamu | 422 di kolom `attendees` |
+| Nama VIP dipakai dua kali | Cek dan daftar kedua 409 `account_taken`. Setelah registrasi pertama dibatalkan, nama itu kembali `vip` |
+| API admin VIP | Tanpa cookie 401. Tempel 7 baris: 3 ditambah, `@` dan 51 karakter ditolak, duplikat dan baris kosong dilewati. Nama yang dinonaktifkan terbaca Solo dan tetap menunjukkan kode registrasinya. Tambah lagi mengaktifkan ulang. ID salah 404, tanpa `is_active` 422 |
+| CLI VIP | `vip list` dan `vip off` sesuai |
+| `TRUSTED_PROXIES` tidak valid | Server berhenti dengan `invalid CIDR address`, tanpa `server jalan` |
+| Uji gabungan frontend di dev (admin, formulir dua langkah, aset di 1440, 1280, dan 375 px, keyboard di 320 px) | Lulus |
+| Deploy ke VM | Build 15,9 detik dengan cache, migrasi `no change`, frontend `healthy`, `account-check` menjawab, SVG `200 image/svg+xml`, CLI di container membaca daftar VIP |
+| Data setelah uji | 1 registrasi (dari HP di Sprint 8), daftar VIP kosong |
+
+Perubahan dari rencana:
+- VIP boleh datang tanpa tamu. Dulu VIP wajib membawa tamu karena pengunjung bisa memilih Solo, sekarang affiliator VIP tidak punya pilihan itu.
+- Menonaktifkan nama yang sudah dipakai tidak mengubah registrasinya. Registrasi tetap VIP sampai admin membatalkannya, supaya status yang sudah masuk tidak berubah diam-diam karena daftar dirapikan.
+- Tempelan nama VIP diproses satu per satu tanpa satu transaksi besar, supaya satu baris salah dari Excel tidak menggagalkan nama lain. Batas 500 nama per tempelan. Kalau tersalin lebih dari satu kolom, hanya kolom pertama yang dipakai.
+- Aset dipindah dari key visual di atas undangan ke sisi kiri dan kanan layar lebar, atas permintaan, supaya tidak menambah jarak gulir. Di bawah 1360px aset tidak tampil dan tidak diunduh.
+- Aset sementara berupa ilustrasi orisinal, bukan materi resmi film, sampai NVM memutuskan materi yang dipakai.
+- Ditemukan dan diperbaiki: error dari `httpapi.NewRouter` di `cmd/server/main.go` tidak pernah dicek, sehingga `TRUSTED_PROXIES` yang salah ketik akan membuat server jalan dengan router nil.
+- Uji pemulihan backup dengan data (langkah 7) dan uji alur dari HP setelah deploy Sprint 9 dipindah ke checklist Sprint 10, karena data uji sudah dibersihkan sebelum keduanya dijalankan.
+
+Bentol:
+- `sqlc generate` sempat jalan sebelum `sqlc.yaml` tersimpan, sehingga `idempotency_key` jadi `pgtype.UUID` dan build gagal. Beres setelah generate ulang.
+- Backend dev gagal start dengan `ping database: context deadline exceeded` karena tunnel SSH sedang menyambung ulang. Saran `ServerAliveInterval 60` di `~/.ssh/config`.
+- `<kode>` di contoh perintah sempat diketik apa adanya, dan bash membacanya sebagai pengalihan input. Tanda kurung sudut di contoh artinya "ganti dengan nilai sebenarnya".
+- Uji cancel sempat memakai kode registrasi yang salah (Solo, bukan VIP), sehingga nama VIP masih terpakai. Hasilnya justru benar.
+- Login curl kedua memakai sandi yang sudah di-`unset`, dan `-c` menimpa cookie jar. Login ulang sebelum blok uji berikutnya.
+- Asisten tidak bisa menjalankan `vue-tsc` dan ESLint di workspace-nya karena registry npm diblokir. Pemeriksaan frontend sepenuhnya lewat `check.sh` di PC.
+
+Operasional tambahan di VM:
+
+| Keperluan | Perintah |
+|---|---|
+| Lihat daftar VIP | `doomsday exec doomsday-backend doomsday-admin vip list` |
+| Tambah nama VIP | `doomsday exec doomsday-backend doomsday-admin vip add <nama> <nama>...`, atau lewat halaman admin |
+| Nonaktifkan atau aktifkan lagi | `doomsday exec doomsday-backend doomsday-admin vip off <nama>` atau `vip on <nama>` |
+| Ganti aset | Taruh file di `frontend/public/doomsday/`, ubah `src/content/assets.ts`, commit, lalu `git pull` dan `doomsday up -d --build` di VM |
+
 ---
 
 ## Sprint 10: Pengujian menyeluruh
@@ -549,7 +611,7 @@ Tujuan: semua kebutuhan terbukti jalan sebelum link disebar.
 
 Rencana:
 
-1. Backend unit test: validasi, generator kode, normalisasi nama akun, aturan kuota dan daftar tunggu, sanitasi CSV, `adminauth` (token kedaluwarsa, tanda tangan salah), `export` (urutan, nomor urut).
+1. Backend unit test: validasi, generator kode, normalisasi nama akun (`NormalizeAccount` di Go dan `normalizeAccount` di frontend harus memberi hasil sama), aturan kuota dan daftar tunggu, sanitasi CSV, `adminauth` (token kedaluwarsa, tanda tangan salah), `export` (urutan, nomor urut).
 2. Backend integration test dengan database uji: semua kode respons di SRS 7, idempotency, email unik, VIP sekali pakai, CLI admin.
 3. Uji balapan: banyak pendaftaran serentak saat sisa kursi sedikit tidak melebihi kapasitas, dan dua pendaftaran serentak dengan nama VIP sama hanya satu yang lolos.
 4. Frontend Vitest: validasi formulir, `newIdempotencyKey`, pemetaan error, kesamaan pesan dengan backend. `vitest run` masuk ke `check.sh`.
@@ -571,6 +633,10 @@ Checklist uji yang ditunda dari sprint sebelumnya:
 | Sprint 7 | Kirim kosong, sandi salah, batas 5 percobaan, muat ulang tetap masuk, cookie dihapus lalu unduh kembali ke form, keluar, rekap kosong, keyboard saja di 320px |
 | Sprint 7 | Unduhan admin di Chrome Android dan Safari iOS |
 | Sprint 8 | Uji pemulihan backup dengan data peserta, termasuk prosedur pulih produksi di database uji |
+| Sprint 9 | Dua tab mengirim nama VIP yang sama: satu dapat kartu, yang lain kembali ke langkah 1 dengan pesan sudah terdaftar |
+| Sprint 9 | Alur Solo dan VIP dari HP lewat LAN setelah deploy Sprint 9, termasuk admin produksi dan Daftar VIP |
+| Sprint 9 | Pembaca layar: tombol Nonaktifkan membacakan nama akun, laporan tambah nama diumumkan |
+| Sprint 9 | Pertimbangkan `staticcheck` di `check.sh`, karena `go vet` tidak menangkap error yang tidak dicek seperti di `cmd/server/main.go` |
 
 Selesai bila: semua checklist lulus, tidak ada bentol terbuka berprioritas M.
 
@@ -599,7 +665,8 @@ Tertahan sampai: domain dipilih.
 | Bioskop, kota, studio, link peta | `doomsday-admin event set ...` |
 | Kapasitas 200 dan pendaftaran terbuka | `doomsday-admin event show` |
 | Data uji terhapus | Dihapus sebagai `doomsday_migrator`, karena `doomsday_app` tidak punya DELETE. Backup dulu sebelum menghapus |
-| Daftar VIP final dari NVM | Halaman admin |
+| Daftar VIP final dari NVM | Halaman admin, bagian Daftar VIP |
+| Aset Doomsday | Ganti ilustrasi sementara dengan materi resmi, atau tetap pakai ilustrasi dan hapus keterangan "Ilustrasi sementara" |
 | Database dev terpisah | Putuskan `nvm_doomsday_dev` untuk development, supaya uji coba tidak menyentuh data asli |
 | Kontak admin di FAQ | Isi teks FAQ |
 
@@ -615,3 +682,5 @@ Tertahan sampai: domain dipilih.
 | Domain | Sprint 11 |
 | Lama penyimpanan data setelah acara | Prosedur hapus data dan backup |
 | Batas jumlah daftar tunggu | Aturan pendaftaran (saat ini tanpa batas) |
+| Materi visual resmi Avengers: Doomsday boleh dipakai atau tidak | Isi `src/content/assets.ts` |
+| Aset juga tampil di HP atau tidak (misalnya di bawah FAQ) | `SideVisuals.vue` dan halaman undangan |
