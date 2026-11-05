@@ -12,7 +12,9 @@ coverage.*
 frontend/node_modules/
 frontend/dist/
 *.tsbuildinfo
-
+# Tanpa awalan folder supaya node_modules di mana pun tidak pernah ikut ter-commit,
+# termasuk kalau npm install tidak sengaja dijalankan di root repo.
+node_modules/
 *.log
 
 .vscode/*
