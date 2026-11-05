@@ -1,0 +1,59 @@
+name: nvm-doomsday
+
+# Bawaan Docker tidak membatasi ukuran log, sedangkan disk VM terbatas.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '3'
+
+services:
+  doomsday-backend:
+    build:
+      context: ../backend
+    image: nvm-doomsday-backend:latest
+    env_file: .env
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+    networks:
+      - doomsday
+      - postgres
+
+  doomsday-frontend:
+    build:
+      context: ../frontend
+    image: nvm-doomsday-frontend:latest
+    restart: unless-stopped
+    ports:
+      - '${DOOMSDAY_PORT:-8090}:80'
+    depends_on:
+      - doomsday-backend
+    # Menguji Nginx, backend, dan koneksi database sekaligus.
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1/api/health']
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+    networks:
+      - doomsday
+
+networks:
+  # Hanya Nginx dan backend. Backend hanya mempercayai X-Forwarded-For dari subnet ini.
+  doomsday:
+    ipam:
+      config:
+        - subnet: ${DOOMSDAY_SUBNET:-172.30.93.0/24}
+  postgres:
+    name: ${PG_NETWORK:-nvm-internal_default}
+    external: true
