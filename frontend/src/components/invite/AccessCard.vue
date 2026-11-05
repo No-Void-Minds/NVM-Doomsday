@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { toPng } from 'html-to-image'
-import { computed, ref, useId, useTemplateRef } from 'vue'
+import { toBlob } from 'html-to-image'
+import { computed, onBeforeUnmount, ref, useId, useTemplateRef } from 'vue'
 
 import type { RegistrationResult } from '@/api/types'
 import BaseButton from '@/components/BaseButton.vue'
@@ -35,6 +35,13 @@ const saving = ref(false)
 const previewUrl = ref<string | null>(null)
 const saveError = ref<string | null>(null)
 
+// URL blob memegang gambar di memori sampai dilepas.
+onBeforeUnmount(() => {
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value)
+  }
+})
+
 async function saveCard() {
   if (!capture.value || saving.value) {
     return
@@ -44,35 +51,47 @@ async function saveCard() {
   const fileName = `nvm-doomsday-${props.result.code}.png`
 
   try {
-    // pixelRatio 2 supaya kode tetap tajam saat gambar diperbesar di HP.
-    // pixelRatio 2 supaya kode tetap tajam saat gambar diperbesar di HP. Margin dinolkan khusus untuk gambar,
-    // karena mx-auto yang dihitung browser jadi piksel akan ikut terbawa dan mendorong kartu keluar dari bingkai.
-    const dataUrl = await toPng(capture.value, {
+    // toBlob, bukan toPng lalu fetch(dataUrl): CSP connect-src 'self' di Nginx menolak fetch ke URL data:,
+    // sehingga di server cara lama selalu gagal. Di dev tidak terlihat karena Vite tidak memasang CSP.
+    // pixelRatio 2 supaya kode tetap tajam saat gambar diperbesar di HP. Margin dinolkan karena mx-auto
+    // yang dihitung browser jadi piksel akan ikut terbawa dan mendorong kartu keluar dari bingkai.
+    const blob = await toBlob(capture.value, {
       pixelRatio: 2,
       backgroundColor: '#08090b',
       style: { margin: '0' },
     })
-    const blob = await (await fetch(dataUrl)).blob()
+    if (!blob) {
+      throw new Error('gambar kartu kosong')
+    }
     const file = new File([blob], fileName, { type: 'image/png' })
 
     // Menu bagikan bawaan HP hanya tersedia di HTTPS. Di sana pendaftar bisa langsung memilih "Simpan gambar".
     if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Kartu akses No Void Minds Doomsday' })
-      return
+      try {
+        await navigator.share({ files: [file], title: 'Kartu akses No Void Minds Doomsday' })
+        return
+      } catch (err) {
+        // Pendaftar menutup menu bagikan tanpa memilih apa pun. Itu bukan kegagalan.
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return
+        }
+        // Di HP, menggambar kartu bisa lebih lama dari batas aktivasi tombol, sehingga browser menolak
+        // membuka menu bagikan (NotAllowedError). Gambarnya sudah jadi, jadi lanjut ke unduhan biasa.
+      }
     }
 
+    if (previewUrl.value) {
+      URL.revokeObjectURL(previewUrl.value)
+    }
+    const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
-    link.href = dataUrl
+    link.href = url
     link.download = fileName
     link.click()
     // Browser bawaan WhatsApp dan Instagram sering mengabaikan unduhan, jadi gambarnya juga ditampilkan
     // supaya bisa disimpan dengan tekan lama.
-    previewUrl.value = dataUrl
-  } catch (err) {
-    // Pendaftar menutup menu bagikan tanpa memilih apa pun. Itu bukan kegagalan.
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      return
-    }
+    previewUrl.value = url
+  } catch {
     saveError.value = 'Gambar kartu gagal dibuat. Screenshot layar ini sebagai gantinya.'
   } finally {
     saving.value = false
