@@ -11,7 +11,23 @@ import type { AccordionItem } from '@/components/accordion'
 import { useEvent } from '@/composables/useEvent'
 import type { EventInfo } from '@/api/types'
 import EventSpecSheet from '@/components/invite/EventSpecSheet.vue'
+import type { RegistrationResult } from '@/api/types'
+import AccessCard from '@/components/invite/AccessCard.vue'
 
+const sampleConfirmed: RegistrationResult = {
+  code: 'NVM-DD-ABC234',
+  type: 'vip',
+  status: 'confirmed',
+  waitlist_position: null,
+  attendees: ['Contoh Nama Satu', 'Contoh Nama Dua dengan nama yang cukup panjang'],
+}
+const sampleWaitlisted: RegistrationResult = {
+  code: 'NVM-DD-XYZ789',
+  type: 'solo',
+  status: 'waitlisted',
+  waitlist_position: 2,
+  attendees: ['Contoh Nama Tiga'],
+}
 const { state: eventState, reload, refresh } = useEvent()
 // Data contoh khusus halaman development, untuk melihat tampilan saat semua jadwal sudah terisi.
 const filledSample = computed<EventInfo | null>(() =>
@@ -165,5 +181,11 @@ function simulateLoading() {
       <h2 class="text-2xl">Lembar spesifikasi, data contoh terisi</h2>
       <EventSpecSheet :event="filledSample" />
     </section>
+    <AccessCard :result="sampleConfirmed" film-title="Avengers: Doomsday" :show-at="null" />
+    <AccessCard
+      :result="sampleWaitlisted"
+      film-title="Avengers: Doomsday"
+      show-at="2026-12-16T12:00:00Z"
+    />
   </main>
 </template>

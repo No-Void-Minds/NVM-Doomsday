@@ -18,6 +18,7 @@ import type { RegistrationResult } from '@/api/types'
 import type { RegistrationDraft } from '@/components/invite/RegistrationForm.vue'
 import type { FieldErrors } from '@/lib/validation'
 import { newIdempotencyKey } from '@/lib/uuid'
+import AccessCard from '@/components/invite/AccessCard.vue'
 
 const OPENED_KEY = 'doomsday_opened'
 
@@ -33,6 +34,7 @@ const submitting = ref(false)
 const serverErrors = ref<FieldErrors>({})
 const formError = ref<string | null>(null)
 const result = ref<RegistrationResult | null>(null)
+const accessCard = useTemplateRef<InstanceType<typeof AccessCard>>('accessCard')
 
 // Key yang sama dipakai ulang selama isi formulir tidak berubah. Kalau kiriman pertama sebenarnya sudah
 // sampai tapi jawabannya hilang karena sinyal putus, kiriman ulang mendapat pendaftaran yang sama dari server.
@@ -54,6 +56,8 @@ async function onRegister(draft: RegistrationDraft) {
     result.value = res.data
     attempt = null
     refresh()
+    await nextTick()
+    accessCard.value?.focus()
     return
   }
 
@@ -163,17 +167,15 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
         <div id="formulir" class="scroll-mt-8">
           <!-- Sementara sampai kartu akses hangtag dibuat di langkah 4. -->
           <BasePanel v-if="result" role="status">
-            <h2 class="text-2xl">Pendaftaran tercatat.</h2>
-            <p class="mt-2 text-fg-muted">Kode registrasi</p>
-            <p class="font-mono text-2xl">{{ result.code }}</p>
-            <p class="mt-2 text-fg-muted">
-              Status:
-              {{
-                result.status === 'confirmed'
-                  ? 'Terkonfirmasi'
-                  : `Daftar tunggu, nomor urut ${result.waitlist_position}`
-              }}
-            </p>
+            <AccessCard
+              v-if="result"
+              ref="accessCard"
+              :result="result"
+              :film-title="
+                eventState.kind === 'ready' ? eventState.event.film_title : 'Avengers: Doomsday'
+              "
+              :show-at="eventState.kind === 'ready' ? eventState.event.show_at : null"
+            />
           </BasePanel>
           <RegistrationForm
             v-else-if="eventState.kind === 'ready' && eventState.event.is_open"
