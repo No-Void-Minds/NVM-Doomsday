@@ -16,8 +16,13 @@ export function buildFaq(event: EventInfo | null): AccordionItem[] {
     {
       question: 'Apa beda Solo dan VIP?',
       answer: maxGuests
-        ? `Solo untuk kamu sendiri. VIP untuk kamu ditambah maksimal ${maxGuests} orang. Data setiap orang wajib diisi, termasuk tamu.`
-        : 'Solo untuk kamu sendiri. VIP untuk kamu ditambah beberapa tamu. Data setiap orang wajib diisi, termasuk tamu.',
+        ? `Formulir membaca nama akunmu. Nama akun yang ada di daftar VIP dari NVM boleh membawa maksimal ${maxGuests} tamu. Nama akun lain mendaftar untuk satu orang. Data setiap orang wajib diisi, termasuk tamu.`
+        : 'Formulir membaca nama akunmu. Nama akun yang ada di daftar VIP dari NVM boleh membawa tamu. Nama akun lain mendaftar untuk satu orang. Data setiap orang wajib diisi, termasuk tamu.',
+    },
+    {
+      question: 'Nama akunku seharusnya VIP, tapi terbaca Solo?',
+      answer:
+        'Cek lagi ejaannya, lalu tekan "Ganti nama akun" dan coba sekali lagi. Huruf besar dan kecil tidak berpengaruh. Kalau tetap terbaca Solo, hubungi admin NVM sebelum mengirim formulir.',
     },
     {
       question: 'Ada biayanya?',

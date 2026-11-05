@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, useId, useTemplateRef, watch } from 'vue'
 
+import { api } from '@/api/client'
 import type { AttendeeInput, EventInfo, RegistrationType } from '@/api/types'
 import BaseButton from '@/components/BaseButton.vue'
 import BaseField from '@/components/BaseField.vue'
 import BasePanel from '@/components/BasePanel.vue'
-import { cleanAttendee, validateRegistration, type FieldErrors } from '@/lib/validation'
+import {
+  cleanAttendee,
+  validateAccount,
+  validateRegistration,
+  type FieldErrors,
+} from '@/lib/validation'
 
 export interface RegistrationDraft {
-  type: RegistrationType
   attendees: AttendeeInput[]
   consent: boolean
   website: string
@@ -37,7 +42,15 @@ function emptyPerson(): PersonDraft {
 }
 
 const titleId = useId()
-const type = ref<RegistrationType>('solo')
+
+// Langkah pertama: nama akun. Hasil cek hanya menentukan tampilan formulir, karena server memutuskan
+// ulang VIP atau Solo saat formulir dikirim.
+const type = ref<RegistrationType | null>(null)
+const accountInput = ref('')
+const accountError = ref<string | null>(null)
+const checking = ref(false)
+const accountField = useTemplateRef<InstanceType<typeof BaseField>>('accountField')
+
 const primary = reactive(emptyPerson())
 const guests = ref<PersonDraft[]>([])
 const consent = ref(false)
@@ -48,21 +61,53 @@ const errors = ref<FieldErrors>({})
 const maxGuests = computed(() => props.event.max_guests_vip)
 const canAddGuest = computed(() => guests.value.length < maxGuests.value)
 
-// VIP minimal membawa satu tamu, jadi satu baris tamu disiapkan saat VIP dipilih pertama kali.
-// Pindah ke Solo tidak menghapus tamu, supaya data yang sudah diketik tidak hilang kalau pendaftar berubah pikiran.
-watch(type, (t) => {
-  if (t === 'vip' && guests.value.length === 0) {
-    guests.value.push(emptyPerson())
+async function checkAccount() {
+  const msg = validateAccount(accountInput.value)
+  if (msg) {
+    accountError.value = msg
+    accountField.value?.focus()
+    return
   }
-  clearError('attendees')
-})
+
+  const name = accountInput.value.trim()
+  checking.value = true
+  accountError.value = null
+  const res = await api.checkAccount(name)
+  checking.value = false
+
+  if (!res.ok) {
+    const field = res.error.fields.find((f) => f.field === 'account_name')
+    accountError.value = field?.message ?? res.error.message
+    accountField.value?.focus()
+    return
+  }
+
+  primary.account_name = name
+  type.value = res.data.type
+  errors.value = {}
+  await nextTick()
+  focusables.get('attendees[0].full_name')?.focus()
+}
+
+// Kembali ke langkah nama akun. Data yang sudah diketik tetap disimpan, termasuk tamu.
+async function changeAccount(message: string | null = null) {
+  type.value = null
+  accountError.value = message
+  errors.value = {}
+  await nextTick()
+  accountField.value?.focus()
+}
 
 const addGuestButton = useTemplateRef<InstanceType<typeof BaseButton>>('addGuest')
 
-function addGuest() {
-  if (canAddGuest.value) {
-    guests.value.push(emptyPerson())
+async function addGuest() {
+  if (!canAddGuest.value) {
+    return
   }
+  guests.value.push(emptyPerson())
+  clearError('attendees')
+  await nextTick()
+  focusables.get(`attendees[${guests.value.length}].full_name`)?.focus()
 }
 
 async function removeGuest(key: number) {
@@ -87,9 +132,14 @@ const people = computed<PersonDraft[]>(() =>
 const headcount = computed(() => people.value.length)
 const isFull = computed(() => props.event.seats_left === 0)
 const exceedsSeats = computed(() => !isFull.value && headcount.value > props.event.seats_left)
-const fields = [
+
+// Nama akun pendaftar sudah dikunci di langkah pertama, jadi hanya tamu yang mengisinya di sini.
+const primaryFields = [
   { name: 'full_name', label: 'Nama lengkap', autocomplete: 'name', max: 100 },
   { name: 'email', label: 'Email', autocomplete: 'email', max: 254 },
+] as const
+const guestFields = [
+  ...primaryFields,
   { name: 'account_name', label: 'Nama akun', autocomplete: 'off', max: 50 },
 ] as const
 
@@ -118,7 +168,8 @@ const errorCount = computed(() => Object.keys(errors.value).length)
 async function focusFirstError() {
   await nextTick()
   const order = [
-    ...people.value.flatMap((_, i) => fields.map((f) => `attendees[${i}].${f.name}`)),
+    ...primaryFields.map((f) => `attendees[0].${f.name}`),
+    ...guests.value.flatMap((_, i) => guestFields.map((f) => `attendees[${i + 1}].${f.name}`)),
     'consent',
   ]
   const first = order.find((path) => path in errors.value)
@@ -132,6 +183,18 @@ async function focusFirstError() {
 watch(
   () => props.serverErrors,
   (serverErrors) => {
+    // Nama VIP keburu dipakai orang lain di antara cek dan kirim. Kolomnya ada di langkah pertama.
+    const taken = serverErrors['attendees[0].account_name']
+    if (taken) {
+      changeAccount(taken)
+      return
+    }
+    // Admin menonaktifkan nama ini di antara cek dan kirim, jadi server membacanya sebagai Solo.
+    // Batas tamu sudah dijaga di formulir, sehingga pesan di kolom attendees saat VIP berarti hal ini.
+    if (serverErrors.attendees && type.value === 'vip' && guests.value.length <= maxGuests.value) {
+      changeAccount(serverErrors.attendees)
+      return
+    }
     if (Object.keys(serverErrors).length > 0) {
       errors.value = { ...serverErrors }
       focusFirstError()
@@ -145,7 +208,7 @@ function onSubmit() {
     email,
     account_name,
   }))
-  errors.value = validateRegistration({ type: type.value, attendees, consent: consent.value })
+  errors.value = validateRegistration({ attendees, consent: consent.value })
 
   if (errorCount.value > 0) {
     focusFirstError()
@@ -153,7 +216,6 @@ function onSubmit() {
   }
 
   emit('submit', {
-    type: type.value,
     attendees: attendees.map(cleanAttendee),
     consent: consent.value,
     website: website.value,
@@ -166,9 +228,6 @@ function onSubmit() {
     <h2 :id="titleId" class="text-2xl">
       {{ isFull ? 'Masuk daftar tunggu' : 'Konfirmasi kehadiran' }}
     </h2>
-    <p class="mt-2 text-fg-muted">
-      Isi data semua orang yang akan datang. Gratis, ini hanya untuk pendataan.
-    </p>
 
     <div v-if="isFull" class="mt-6 rounded-paper border-l-4 border-wait bg-void p-4">
       <p class="font-heading text-lg font-bold">Kursi utama sudah penuh</p>
@@ -178,53 +237,57 @@ function onSubmit() {
       </p>
     </div>
 
-    <form class="mt-6" novalidate @submit.prevent="onSubmit">
+    <form
+      v-if="type === null"
+      class="mt-6 flex flex-col gap-5"
+      novalidate
+      @submit.prevent="checkAccount"
+    >
+      <p class="text-fg-muted">
+        Mulai dari nama akunmu. Formulir berikutnya menyesuaikan dengan nama akun itu.
+      </p>
+      <BaseField
+        ref="accountField"
+        v-model="accountInput"
+        label="Nama akun"
+        hint="Tulis persis seperti nama akunmu. Tanda @ di depan boleh ditulis atau tidak."
+        autocomplete="off"
+        :maxlength="50"
+        placeholder="Nama akun"
+        :error="accountError ?? undefined"
+        :disabled="checking"
+        required
+        @update:model-value="accountError = null"
+      />
+      <BaseButton type="submit" block :loading="checking">
+        {{ checking ? 'Memeriksa...' : 'Lanjut isi data' }}
+      </BaseButton>
+    </form>
+
+    <form v-else class="mt-6" novalidate @submit.prevent="onSubmit">
       <!-- Satu fieldset disabled mengunci semua kolom dan tombol sekaligus selama pengiriman. -->
       <fieldset :disabled="submitting" class="flex min-w-0 flex-col gap-8">
-        <fieldset>
-          <legend class="text-sm font-medium">Pilih tipe</legend>
-          <div class="mt-2 grid grid-cols-2 gap-3">
-            <label
-              v-for="opt in [
-                { value: 'solo', label: 'Solo', hint: 'Kamu sendiri' },
-                { value: 'vip', label: 'VIP', hint: `Kamu + maksimal ${maxGuests} orang` },
-              ]"
-              :key="opt.value"
-              class="relative flex min-h-16 cursor-pointer flex-col justify-center rounded-paper border px-4 py-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-paper"
-              :class="type === opt.value ? 'border-paper' : 'border-line hover:border-fg-muted'"
-            >
-              <input
-                v-model="type"
-                type="radio"
-                name="registration-type"
-                :value="opt.value"
-                class="sr-only"
-              />
-              <span class="pr-6 font-heading text-lg">{{ opt.label }}</span>
-              <span class="text-sm text-fg-muted">{{ opt.hint }}</span>
-              <svg
-                v-if="type === opt.value"
-                class="absolute right-3 top-3 size-4 text-paper"
-                viewBox="0 0 16 16"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="m3.5 8.5 3 3 6-7"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </label>
+        <div class="flex flex-col gap-3 rounded-paper border border-line/60 p-4 sm:p-5">
+          <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <p class="min-w-0 break-words">
+              <span class="text-sm text-fg-muted">Nama akun</span>
+              <span class="block font-mono">{{ primary.account_name }}</span>
+            </p>
+            <BaseButton variant="text" @click="changeAccount()">Ganti nama akun</BaseButton>
           </div>
-        </fieldset>
+          <p class="text-sm" :class="type === 'vip' ? 'text-fg' : 'text-fg-muted'">
+            {{
+              type === 'vip'
+                ? `Nama akun ini ada di daftar VIP. Kamu boleh membawa sampai ${maxGuests} tamu.`
+                : 'Pendaftaran ini untuk kamu sendiri.'
+            }}
+          </p>
+        </div>
 
         <fieldset class="flex flex-col gap-5">
           <legend class="font-heading text-xl font-bold">Data kamu</legend>
           <BaseField
-            v-for="f in fields"
+            v-for="f in primaryFields"
             :key="f.name"
             :ref="(el) => register(`attendees[0].${f.name}`, el)"
             v-model="primary[f.name]"
@@ -244,6 +307,9 @@ function onSubmit() {
           <h3 id="guests-title" class="font-heading text-xl">
             Tamu ({{ guests.length }} dari {{ maxGuests }})
           </h3>
+          <p v-if="guests.length === 0" class="text-sm text-fg-muted">
+            Datang sendiri juga boleh. Tambahkan tamu kalau ada yang ikut.
+          </p>
           <p v-if="errors.attendees" class="text-sm text-error">{{ errors.attendees }}</p>
 
           <fieldset
@@ -254,7 +320,7 @@ function onSubmit() {
             <legend class="sr-only">Tamu {{ gi + 1 }}</legend>
             <p class="font-heading text-lg font-bold" aria-hidden="true">Tamu {{ gi + 1 }}</p>
             <BaseField
-              v-for="f in fields"
+              v-for="f in guestFields"
               :key="f.name"
               :ref="(el) => register(`attendees[${gi + 1}].${f.name}`, el)"
               v-model="guest[f.name]"
@@ -268,12 +334,7 @@ function onSubmit() {
               required
               @update:model-value="clearError(`attendees[${gi + 1}].${f.name}`)"
             />
-            <BaseButton
-              v-if="guests.length > 1"
-              variant="text"
-              class="self-start"
-              @click="removeGuest(guest.key)"
-            >
+            <BaseButton variant="text" class="self-start" @click="removeGuest(guest.key)">
               <svg class="size-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path
                   d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"
@@ -310,7 +371,13 @@ function onSubmit() {
         </section>
 
         <div class="flex flex-col gap-2">
-          <p class="text-sm text-fg-muted">Semua isian wajib diisi, termasuk data tamu.</p>
+          <p class="text-sm text-fg-muted">
+            {{
+              type === 'vip'
+                ? 'Semua isian wajib diisi, termasuk data tamu.'
+                : 'Semua isian wajib diisi.'
+            }}
+          </p>
           <label class="flex min-h-11 cursor-pointer items-start gap-3 pt-2">
             <input
               ref="consentInput"

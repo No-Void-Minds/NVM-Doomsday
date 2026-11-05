@@ -26,14 +26,19 @@ export interface AttendeeInput {
   account_name: string
 }
 
+// Tipe Solo atau VIP tidak dikirim. Server menentukannya dari nama akun pendaftar (attendees[0]).
 export interface RegistrationRequest {
-  type: RegistrationType
   // Indeks 0 selalu pendaftar, sisanya tamu.
   attendees: AttendeeInput[]
   consent: boolean
   idempotency_key: string
   // Honeypot, selalu dikirim kosong oleh formulir asli.
   website: string
+}
+
+// Hasil langkah pertama formulir. Hanya petunjuk tampilan, karena server memutuskan ulang saat mendaftar.
+export interface AccountCheckResult {
+  type: RegistrationType
 }
 
 export interface RegistrationResult {
@@ -57,6 +62,7 @@ export type ErrorCode =
   | 'not_found'
   | 'registration_closed'
   | 'duplicate_email'
+  | 'account_taken'
   | 'rate_limited'
   | 'internal_error'
   | 'unauthorized'

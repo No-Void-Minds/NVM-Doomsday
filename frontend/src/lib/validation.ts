@@ -1,4 +1,4 @@
-import type { AttendeeInput, RegistrationType } from '@/api/types'
+import type { AttendeeInput } from '@/api/types'
 
 // Aturan dan pesan disamakan dengan backend (internal/registration/validate.go), supaya pendaftar melihat
 // kalimat yang sama di mana pun kesalahannya tertangkap. Backend tetap penentu akhir.
@@ -43,12 +43,27 @@ function emailProblem(email: string): string | null {
   return null
 }
 
+// Sama dengan NormalizeAccount di backend (internal/registration/account.go): bentuk inilah yang
+// dicocokkan dengan daftar VIP.
+export function normalizeAccount(value: string): string {
+  return value.trim().replace(/^@+/, '').trim().toLowerCase()
+}
+
+// Langkah pertama formulir. "@" saja lolos aturan teks biasa, tapi tidak bisa dicocokkan.
+export function validateAccount(raw: string): string | null {
+  const value = raw.trim()
+  const msg = textProblem(value, 50, 'Nama akun')
+  if (msg) {
+    return msg
+  }
+  return normalizeAccount(value) === '' ? 'Nama akun wajib diisi.' : null
+}
+
 function rowLabel(i: number): string {
   return i === 0 ? 'data kamu' : `Tamu ${i}`
 }
 
 export function validateRegistration(input: {
-  type: RegistrationType
   attendees: AttendeeInput[]
   consent: boolean
 }): FieldErrors {
@@ -76,9 +91,6 @@ export function validateRegistration(input: {
     if (accountMsg) errors[`${prefix}.account_name`] = accountMsg
   })
 
-  if (input.type === 'vip' && input.attendees.length < 2) {
-    errors.attendees = 'VIP butuh minimal satu tamu. Pilih Solo kalau datang sendiri.'
-  }
   if (!input.consent) {
     errors.consent = 'Centang persetujuan penggunaan data untuk melanjutkan.'
   }

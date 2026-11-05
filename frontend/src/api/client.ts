@@ -7,6 +7,7 @@ import type {
   FieldError,
   RegistrationRequest,
   RegistrationResult,
+  AccountCheckResult,
 } from './types'
 
 // Lebih lama dari waktu wajar pendaftaran di jaringan seluler yang lemah, tapi cukup pendek supaya
@@ -100,6 +101,8 @@ function isFieldError(v: unknown): v is FieldError {
 
 export const api = {
   getEvent: () => request<EventInfo>('/api/event'),
+  checkAccount: (accountName: string) =>
+    postJSON<AccountCheckResult>('/api/account-check', { account_name: accountName }),
   register: (req: RegistrationRequest) => postJSON<RegistrationResult>('/api/registrations', req),
   adminLogin: (password: string) => postJSON<void>('/api/admin/login', { password }),
   adminLogout: () => request<void>('/api/admin/logout', { method: 'POST' }),
