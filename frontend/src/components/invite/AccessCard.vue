@@ -12,6 +12,8 @@ const props = defineProps<{
   result: RegistrationResult
   filmTitle: string
   showAt: string | null
+  // Terisi bila kartu dipulihkan dari perangkat, bukan hasil pendaftaran barusan.
+  savedAt?: string | null
 }>()
 
 const titleId = useId()
@@ -101,6 +103,10 @@ async function copyCode() {
             ? 'Simpan kartu ini. Tunjukkan kodenya saat hari H.'
             : 'Admin akan menghubungi lewat email kalau ada kursi kosong.'
         }}
+      </p>
+      <p v-if="savedAt" class="mt-2 text-sm text-fg-muted">
+        Kartu ini tersimpan di perangkat ini sejak {{ formatDateWIB(savedAt) }}. Kalau statusnya
+        berubah, admin mengabari lewat email.
       </p>
     </div>
 

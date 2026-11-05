@@ -33,7 +33,68 @@ const FORM_FIELD = /^(attendees\[\d+\]\.(full_name|email|account_name)|consent|a
 const submitting = ref(false)
 const serverErrors = ref<FieldErrors>({})
 const formError = ref<string | null>(null)
-const result = ref<RegistrationResult | null>(null)
+const CARD_KEY = 'doomsday_card'
+
+interface StoredCard {
+  result: RegistrationResult
+  savedAt: string
+}
+
+// Isi localStorage bisa rusak atau diubah orang, jadi bentuknya diperiksa sebelum dipakai.
+function isStoredCard(v: unknown): v is StoredCard {
+  if (typeof v !== 'object' || v === null) {
+    return false
+  }
+  const { result, savedAt } = v as Record<string, unknown>
+  if (typeof savedAt !== 'string' || typeof result !== 'object' || result === null) {
+    return false
+  }
+  const r = result as Record<string, unknown>
+  return (
+    typeof r.code === 'string' &&
+    (r.type === 'solo' || r.type === 'vip') &&
+    (r.status === 'confirmed' || r.status === 'waitlisted') &&
+    (r.waitlist_position === null || typeof r.waitlist_position === 'number') &&
+    Array.isArray(r.attendees) &&
+    r.attendees.every((name) => typeof name === 'string')
+  )
+}
+
+// localStorage bisa diblokir di mode privat atau browser bawaan aplikasi. Kalau gagal, kartu tetap tampil
+// di sesi ini, hanya tidak muncul lagi saat link dibuka ulang.
+function readCard(): StoredCard | null {
+  try {
+    const raw = localStorage.getItem(CARD_KEY)
+    if (raw === null) {
+      return null
+    }
+    const parsed: unknown = JSON.parse(raw)
+    return isStoredCard(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function storeCard(r: RegistrationResult) {
+  try {
+    const card: StoredCard = { result: r, savedAt: new Date().toISOString() }
+    localStorage.setItem(CARD_KEY, JSON.stringify(card))
+  } catch {
+    // Lihat readCard.
+  }
+}
+
+const storedCard = readCard()
+const result = ref<RegistrationResult | null>(storedCard?.result ?? null)
+const restoredAt = ref<string | null>(storedCard?.savedAt ?? null)
+
+// Satu perangkat bisa dipakai mendaftarkan teman. Kartu lama tetap tersimpan sampai pendaftaran baru berhasil.
+async function registerAnother() {
+  result.value = null
+  restoredAt.value = null
+  await nextTick()
+  document.getElementById('formulir')?.scrollIntoView()
+}
 const accessCard = useTemplateRef<InstanceType<typeof AccessCard>>('accessCard')
 
 // Key yang sama dipakai ulang selama isi formulir tidak berubah. Kalau kiriman pertama sebenarnya sudah
@@ -54,6 +115,8 @@ async function onRegister(draft: RegistrationDraft) {
 
   if (res.ok) {
     result.value = res.data
+    restoredAt.value = null
+    storeCard(res.data)
     attempt = null
     refresh()
     await nextTick()
@@ -99,7 +162,8 @@ function rememberOpened() {
   }
 }
 
-const opened = ref(readOpened())
+// Pengunjung yang sudah punya kartu tidak perlu membuka amplop lagi.
+const opened = ref(readOpened() || storedCard !== null)
 const heading = useTemplateRef<HTMLHeadingElement>('heading')
 
 async function onOpen() {
@@ -160,23 +224,40 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
           <EventSpecSheet :event="eventState.event" />
           <EventCountdown :show-at="eventState.event.show_at" />
           <EventSeats :event="eventState.event" />
+          <!-- Link biasa supaya tetap jalan walau JavaScript terlambat. Di layar lebar formulir sudah terlihat
+               di kolom kanan, jadi tombol ini disembunyikan. Gayanya sama dengan BaseButton primary. -->
+          <a
+            v-if="result || eventState.event.is_open"
+            href="#formulir"
+            class="inline-flex min-h-12 w-full items-center justify-center rounded-paper bg-paper px-5 font-semibold text-void transition-[transform,background-color] duration-150 hover:bg-fg active:translate-y-px active:bg-fg lg:hidden"
+          >
+            {{
+              result
+                ? 'Lihat kartu akses'
+                : eventState.event.seats_left === 0
+                  ? 'Masuk daftar tunggu'
+                  : 'Konfirmasi kehadiran'
+            }}
+          </a>
         </template>
       </div>
 
       <div class="flex min-w-0 flex-col gap-8">
         <div id="formulir" class="scroll-mt-8">
-          <!-- Sementara sampai kartu akses hangtag dibuat di langkah 4. -->
-          <BasePanel v-if="result" role="status">
+          <div v-if="result" class="flex flex-col gap-4">
             <AccessCard
-              v-if="result"
               ref="accessCard"
               :result="result"
               :film-title="
                 eventState.kind === 'ready' ? eventState.event.film_title : 'Avengers: Doomsday'
               "
               :show-at="eventState.kind === 'ready' ? eventState.event.show_at : null"
+              :saved-at="restoredAt"
             />
-          </BasePanel>
+            <BaseButton variant="text" class="self-center" @click="registerAnother">
+              Daftarkan orang lain
+            </BaseButton>
+          </div>
           <RegistrationForm
             v-else-if="eventState.kind === 'ready' && eventState.event.is_open"
             :event="eventState.event"
