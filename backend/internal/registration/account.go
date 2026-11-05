@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackc/pgx/v5"
-
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/db/sqlc"
+	"github.com/jackc/pgx/v5"
+	"unicode"
 )
 
 // ErrAccountTaken: nama akun VIP sudah dipakai registrasi lain yang belum batal.
@@ -18,11 +18,13 @@ var ErrAccountTaken = errors.New("nama akun VIP sudah dipakai")
 const MsgAccountTaken = "Nama akun ini sudah terdaftar. Hubungi admin NVM."
 
 // NormalizeAccount menghasilkan kunci pencocokan daftar VIP. Harus selaras dengan CHECK
-// vip_accounts.account_key di migrasi 0004, karena index unik di sana bergantung pada bentuk ini.
+// vip_accounts.account_key di migrasi 0004 dan normalizeAccount di frontend.
+// "@" dan spasi di depan dibuang bersamaan, supaya "@ @budi" tidak menyisakan "@budi" yang ditolak CHECK.
+// BOM ikut dibuang karena sering terbawa dari file CSV, dan trim() di JavaScript juga membuangnya.
 func NormalizeAccount(s string) string {
-	s = strings.TrimSpace(s)
-	s = strings.TrimLeft(s, "@")
-	return strings.ToLower(strings.TrimSpace(s))
+	s = strings.TrimLeftFunc(s, func(r rune) bool { return r == '@' || r == '\ufeff' || unicode.IsSpace(r) })
+	s = strings.TrimRightFunc(s, func(r rune) bool { return r == '\ufeff' || unicode.IsSpace(r) })
+	return strings.ToLower(s)
 }
 
 // ValidateAccount untuk langkah pertama formulir: aturan yang sama dengan kolom nama akun pendaftar.

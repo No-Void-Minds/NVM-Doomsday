@@ -4,7 +4,10 @@ import type { AttendeeInput } from '@/api/types'
 // kalimat yang sama di mana pun kesalahannya tertangkap. Backend tetap penentu akhir.
 
 const CONTROL = /\p{Cc}/u
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// Selaras dengan mail.ParseAddress di backend untuk alamat polos: tanpa titik di awal, di akhir, atau berurutan,
+// tanpa karakter khusus RFC 5322, dan domain wajib bertitik.
+const ATOM = String.raw`[^\s@."(),:;<>[\]\\]+`
+const EMAIL = new RegExp(`^${ATOM}(\\.${ATOM})*@${ATOM}(\\.${ATOM})+$`)
 
 export type FieldErrors = Record<string, string>
 
@@ -44,9 +47,12 @@ function emailProblem(email: string): string | null {
 }
 
 // Sama dengan NormalizeAccount di backend (internal/registration/account.go): bentuk inilah yang
-// dicocokkan dengan daftar VIP.
+// dicocokkan dengan daftar VIP. \u0085 ditambahkan karena Go menganggapnya spasi, sedangkan \s di JavaScript tidak.
 export function normalizeAccount(value: string): string {
-  return value.trim().replace(/^@+/, '').trim().toLowerCase()
+  return value
+    .replace(/^[\s\u0085@]+/, '')
+    .replace(/[\s\u0085]+$/, '')
+    .toLowerCase()
 }
 
 // Langkah pertama formulir. "@" saja lolos aturan teks biasa, tapi tidak bisa dicocokkan.

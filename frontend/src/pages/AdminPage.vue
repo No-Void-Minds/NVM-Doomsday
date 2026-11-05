@@ -93,6 +93,8 @@ async function login() {
     return
   }
   loginError.value = res.error.message
+  // Kolom masih disabled sampai Vue memperbarui DOM, dan browser mengabaikan fokus ke kolom yang disabled.
+  await nextTick()
   passwordField.value?.focus()
 }
 

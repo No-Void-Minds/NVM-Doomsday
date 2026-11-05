@@ -181,7 +181,7 @@ function statusText(a: VipAccount): string {
             Ditolak: {{ report.rejected.length }} nama. Perbaiki di kotak di atas, lalu tambah lagi.
           </p>
           <ul class="mt-1 flex flex-col gap-1">
-            <li v-for="r in report.rejected" :key="r.account_name" class="break-all">
+            <li v-for="(r, i) in report.rejected" :key="i" class="break-all">
               <span class="font-mono">{{ r.account_name }}</span>
               <span class="text-fg-muted">: {{ r.message }}</span>
             </li>

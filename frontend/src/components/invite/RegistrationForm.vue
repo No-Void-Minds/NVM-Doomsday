@@ -78,6 +78,8 @@ async function checkAccount() {
   if (!res.ok) {
     const field = res.error.fields.find((f) => f.field === 'account_name')
     accountError.value = field?.message ?? res.error.message
+    // Kolom masih disabled sampai Vue memperbarui DOM, dan browser mengabaikan fokus ke kolom yang disabled.
+    await nextTick()
     accountField.value?.focus()
     return
   }

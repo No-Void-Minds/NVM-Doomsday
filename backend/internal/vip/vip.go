@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/db/sqlc"
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/registration"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Satu kali tempel dari Excel. Lebih dari ini kemungkinan besar seluruh sheet ikut tersalin.
@@ -110,6 +110,10 @@ func (s *Service) Add(ctx context.Context, names []string) (AddReport, error) {
 			case errors.Is(err, pgx.ErrNoRows):
 				// Masuk lebih dulu lewat jalur lain di saat yang sama.
 				rep.Existing = append(rep.Existing, name)
+			case isCheckViolation(err):
+				// Jaring terakhir kalau normalisasi Go dan CHECK database berbeda pendapat, misalnya soal huruf kecil
+				// untuk huruf non-Latin. Satu nama ditolak, nama lain di tempelan yang sama tetap masuk.
+				rep.Rejected = append(rep.Rejected, Rejected{Name: name, Message: "Nama akun berisi karakter yang tidak didukung."})
 			case err != nil:
 				return rep, fmt.Errorf("tambah %q: %w", name, err)
 			default:
@@ -143,4 +147,9 @@ func (s *Service) SetActiveByName(ctx context.Context, name string, active bool)
 		return Account{}, fmt.Errorf("cari nama VIP: %w", err)
 	}
 	return s.SetActive(ctx, cur.ID, active)
+}
+
+func isCheckViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23514"
 }

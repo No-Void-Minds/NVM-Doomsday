@@ -158,7 +158,7 @@ async function copyCode() {
             <dt class="font-mono text-xs uppercase tracking-[0.08em] text-ink-faded">Peserta</dt>
             <dd>
               <ul>
-                <li v-for="name in result.attendees" :key="name" class="break-words">
+                <li v-for="(name, i) in result.attendees" :key="i">
                   {{ name }}
                 </li>
               </ul>

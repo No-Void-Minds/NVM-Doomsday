@@ -186,7 +186,7 @@ func (s *Service) UpdateAttendee(ctx context.Context, rawCode string, position i
 	}
 
 	before := Attendee{FullName: current.FullName, Email: current.Email, AccountName: current.AccountName}
-	req := AttendeeRequest{FullName: before.FullName, Email: before.Email, AccountName: before.AccountName}
+	req := AttendeeRequest(before)
 	if patch.FullName != nil {
 		req.FullName = *patch.FullName
 	}
