@@ -43,7 +43,13 @@ async function saveCard() {
 
   try {
     // pixelRatio 2 supaya kode tetap tajam saat gambar diperbesar di HP.
-    const dataUrl = await toPng(capture.value, { pixelRatio: 2, backgroundColor: '#08090b' })
+    // pixelRatio 2 supaya kode tetap tajam saat gambar diperbesar di HP. Margin dinolkan khusus untuk gambar,
+    // karena mx-auto yang dihitung browser jadi piksel akan ikut terbawa dan mendorong kartu keluar dari bingkai.
+    const dataUrl = await toPng(capture.value, {
+      pixelRatio: 2,
+      backgroundColor: '#08090b',
+      style: { margin: '0' },
+    })
     const blob = await (await fetch(dataUrl)).blob()
     const file = new File([blob], fileName, { type: 'image/png' })
 
