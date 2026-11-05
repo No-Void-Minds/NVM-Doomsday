@@ -129,8 +129,8 @@ func (q *Queries) InsertAttendee(ctx context.Context, arg InsertAttendeeParams) 
 }
 
 const insertRegistration = `-- name: InsertRegistration :one
-INSERT INTO registrations (code, type, status, idempotency_key, consent_at, created_at, status_changed_at)
-VALUES ($1, $2, $3, $4, clock_timestamp(), clock_timestamp(), clock_timestamp())
+INSERT INTO registrations (code, type, status, idempotency_key, vip_account_id, consent_at, created_at, status_changed_at)
+VALUES ($1, $2, $3, $4, $5, clock_timestamp(), clock_timestamp(), clock_timestamp())
 RETURNING id, code, type, status, idempotency_key, consent_at, created_at, status_changed_at, vip_account_id
 `
 
@@ -139,6 +139,7 @@ type InsertRegistrationParams struct {
 	Type           RegistrationType
 	Status         RegistrationStatus
 	IdempotencyKey uuid.UUID
+	VipAccountID   *uuid.UUID
 }
 
 // Waktu memakai clock_timestamp(), bukan now(). now() adalah waktu transaksi dimulai, padahal
@@ -150,6 +151,7 @@ func (q *Queries) InsertRegistration(ctx context.Context, arg InsertRegistration
 		arg.Type,
 		arg.Status,
 		arg.IdempotencyKey,
+		arg.VipAccountID,
 	)
 	var i Registration
 	err := row.Scan(

@@ -8,8 +8,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-
-	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/db/sqlc"
 )
 
 // Batas yang diizinkan skema database (CHECK posisi 0 sampai 3). Batas yang sedang berlaku,
@@ -22,8 +20,8 @@ type AttendeeRequest struct {
 	AccountName string `json:"account_name"`
 }
 
+// Tipe Solo atau VIP tidak dikirim browser. Server menentukannya dari daftar VIP saat mendaftar.
 type Request struct {
-	Type           string            `json:"type"`
 	Attendees      []AttendeeRequest `json:"attendees"`
 	Consent        bool              `json:"consent"`
 	IdempotencyKey string            `json:"idempotency_key"`
@@ -39,7 +37,6 @@ type Attendee struct {
 
 // Input adalah hasil validasi yang sudah bersih: spasi dipangkas, email huruf kecil.
 type Input struct {
-	Type           sqlc.RegistrationType
 	Attendees      []Attendee
 	IdempotencyKey uuid.UUID
 }
@@ -63,15 +60,6 @@ func Validate(req Request) (Input, []FieldError) {
 	}
 
 	var in Input
-	switch req.Type {
-	case string(sqlc.RegistrationTypeSolo):
-		in.Type = sqlc.RegistrationTypeSolo
-	case string(sqlc.RegistrationTypeVip):
-		in.Type = sqlc.RegistrationTypeVip
-	default:
-		add("type", "Pilih Solo atau VIP.")
-	}
-
 	key, err := uuid.Parse(req.IdempotencyKey)
 	if err != nil {
 		add("idempotency_key", "Muat ulang halaman, lalu coba kirim lagi.")
@@ -91,10 +79,6 @@ func Validate(req Request) (Input, []FieldError) {
 		// Berhenti di sini supaya body dengan ribuan baris tidak ikut diperiksa satu per satu.
 		add("attendees", fmt.Sprintf("Maksimal %d tamu.", maxGuestsHard))
 		return Input{}, errs
-	case in.Type == sqlc.RegistrationTypeSolo && n != 1:
-		add("attendees", "Solo hanya untuk satu orang. Pilih VIP kalau mau membawa tamu.")
-	case in.Type == sqlc.RegistrationTypeVip && n < 2:
-		add("attendees", "VIP butuh minimal satu tamu. Pilih Solo kalau datang sendiri.")
 	}
 
 	seen := make(map[string]int, n)
@@ -106,6 +90,10 @@ func Validate(req Request) (Input, []FieldError) {
 
 		checkText(name, 100, prefix+".full_name", "Nama lengkap", add)
 		checkText(account, 50, prefix+".account_name", "Nama akun", add)
+		// Nama akun pendaftar dicocokkan dengan daftar VIP, jadi kuncinya tidak boleh kosong.
+		if i == 0 && account != "" && NormalizeAccount(account) == "" {
+			add(prefix+".account_name", "Nama akun wajib diisi.")
+		}
 
 		if msg := emailProblem(email); msg != "" {
 			add(prefix+".email", msg)

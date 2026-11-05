@@ -16,6 +16,7 @@ const (
 	CodeInternal        = "internal_error"
 	CodeUnauthorized    = "unauthorized"
 	CodeInvalidPassword = "invalid_password"
+	CodeAccountTaken    = "account_taken"
 )
 
 type FieldError struct {

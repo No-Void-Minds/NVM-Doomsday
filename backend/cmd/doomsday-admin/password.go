@@ -19,8 +19,8 @@ func hashPassword(in io.Reader, out io.Writer) error {
 	}
 	pw := strings.TrimRight(line, "\r\n")
 
-	if utf8.RuneCountInString(pw) < 12 {
-		return errors.New("sandi minimal 12 karakter")
+	if utf8.RuneCountInString(pw) < 10 {
+		return errors.New("sandi minimal 10 karakter")
 	}
 	// bcrypt hanya memakai 72 byte pertama. Sandi lebih panjang ditolak supaya tidak ada ilusi keamanan.
 	if len(pw) > 72 {

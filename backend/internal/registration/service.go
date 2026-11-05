@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -73,7 +74,28 @@ func (s *Service) Register(ctx context.Context, in Input) (Result, error) {
 		return Result{}, ErrClosed
 	}
 
+	// Tipe diputuskan di sini, di bawah kunci event, bukan dari hasil cek di langkah pertama formulir.
+	regType := sqlc.RegistrationTypeSolo
+	var vipID *uuid.UUID
+	vip, err := q.FindVipAccount(ctx, NormalizeAccount(in.Attendees[0].AccountName))
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+	case err != nil:
+		return Result{}, fmt.Errorf("cari akun VIP: %w", err)
+	case vip.Used:
+		return Result{}, ErrAccountTaken
+	default:
+		regType = sqlc.RegistrationTypeVip
+		vipID = &vip.ID
+	}
+
 	guests := len(in.Attendees) - 1
+	if regType == sqlc.RegistrationTypeSolo && guests > 0 {
+		return Result{}, &ValidationError{Fields: []FieldError{{
+			Field:   "attendees",
+			Message: "Nama akun ini tidak ada di daftar VIP, jadi pendaftaran hanya untuk kamu sendiri.",
+		}}}
+	}
 	if guests > int(ev.MaxGuestsVip) {
 		return Result{}, &ValidationError{Fields: []FieldError{{
 			Field:   "attendees",
@@ -104,10 +126,15 @@ func (s *Service) Register(ctx context.Context, in Input) (Result, error) {
 
 	reg, err := q.InsertRegistration(ctx, sqlc.InsertRegistrationParams{
 		Code:           code,
-		Type:           in.Type,
+		Type:           regType,
 		Status:         status,
 		IdempotencyKey: in.IdempotencyKey,
+		VipAccountID:   vipID,
 	})
+	if isUniqueViolation(err, "registrations_vip_account_active_key") {
+		// Seharusnya sudah tertangkap FindVipAccount di atas. Ini jaring terakhir dari index unik.
+		return Result{}, ErrAccountTaken
+	}
 	if err != nil {
 		return Result{}, fmt.Errorf("simpan registrasi: %w", err)
 	}

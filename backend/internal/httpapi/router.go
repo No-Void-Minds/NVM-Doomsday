@@ -49,6 +49,7 @@ func NewRouter(cfg config.Config, deps Deps) (*gin.Engine, error) {
 	api.GET("/health", healthHandler(deps))
 	api.GET("/event", eventHandler(deps))
 	api.POST("/registrations", rateLimit(newIPLimiter(6*time.Second, 10)), registerHandler(deps))
+	api.POST("/account-check", rateLimit(newIPLimiter(3*time.Second, 20)), accountCheckHandler(deps))
 	admin := api.Group("/admin")
 	// Lebih ketat dari pendaftaran: 5 percobaan beruntun, lalu 1 per 12 detik per IP.
 	admin.POST("/login", rateLimit(newIPLimiter(12*time.Second, 5)), loginHandler(cfg, deps))

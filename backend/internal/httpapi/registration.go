@@ -53,6 +53,10 @@ func registerHandler(deps Deps) gin.HandlerFunc {
 		case errors.Is(err, registration.ErrClosed):
 			writeError(c, http.StatusConflict, CodeClosed, "Pendaftaran sudah ditutup.", nil)
 			return
+		case errors.Is(err, registration.ErrAccountTaken):
+			writeError(c, http.StatusConflict, CodeAccountTaken, registration.MsgAccountTaken,
+				[]FieldError{{Field: "attendees[0].account_name", Message: registration.MsgAccountTaken}})
+			return
 		case errors.As(err, &vErr):
 			writeError(c, http.StatusUnprocessableEntity, CodeValidation,
 				"Ada isian yang perlu dicek.", toFieldErrors(vErr.Fields))
