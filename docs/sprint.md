@@ -407,6 +407,41 @@ Tujuan: admin mengelola data dari browser.
 Selesai bila: admin bisa masuk, melihat angka yang cocok dengan database, dan mengunduh dua format, check.sh lulus.
 Referensi: FR-30, FR-31, FR-37.
 
+## Laporan Sprint 7: halaman admin
+
+Status: selesai. Commit f1b4601.
+
+### Yang dikerjakan
+
+| Bagian | Hasil |
+|---|---|
+| Cek sesi saat halaman dibuka | Skeleton tampil dulu. Kalau cookie `doomsday_admin` masih berlaku, halaman langsung ke rekap. Kalau tidak, ke form masuk |
+| Form masuk | Satu kolom "Sandi admin", fokus langsung ke kolom itu. Kalau kosong, tampil "Isi sandi admin." Pesan sandi salah dan batas percobaan datang dari server |
+| Rekap | Tiga baris: Terkonfirmasi "{x} dari {kapasitas} peserta", Daftar tunggu "{y} peserta", Batal "{z} registrasi". Angka memakai JetBrains Mono tabular |
+| State | Memuat (skeleton), gagal (pesan dan "Coba lagi"), kosong ("Belum ada peserta. File unduhan hanya berisi judul kolom.") |
+| Unduh | "Unduh Excel" (utama) dan "Unduh CSV" (outline), bertumpuk di HP dan berdampingan mulai `sm` |
+| Keluar | Cookie dihapus lewat API, form tampil dengan "Kamu sudah keluar." |
+
+### Keputusan
+
+- Sesi dicek sekali lagi sebelum mengunduh. File diunduh lewat link biasa supaya browser memakai nama file dari `Content-Disposition`. Tanpa cek ini, sesi yang sudah habis akan menyimpan pesan error JSON sebagai file `.xlsx` yang rusak.
+- Jawaban 401 dari endpoint mana pun mengembalikan admin ke form masuk dengan pesan dari server, bukan menampilkan error di rekap.
+- Tidak ada persentase atau grafik. Admin butuh angka yang sama dengan isi file.
+- Setelah masuk, fokus pindah ke judul "Rekap pendaftaran" supaya pembaca layar tahu halamannya sudah berganti.
+
+### Hasil uji
+
+| Uji | Hasil |
+|---|---|
+| Masuk dengan sandi benar, rekap dengan data uji (kapasitas 3, dua VIP, satu dibatalkan) | Lulus: "2 dari 3 peserta", "0 peserta", "1 registrasi" |
+| `check.sh` | Lulus |
+
+### Dibawa ke Sprint 9
+
+- Sisa tabel uji Sprint 7: kirim kosong, sandi salah, batas 5 percobaan per 12 detik, muat ulang tetap masuk, unduh dua format, cookie dihapus lalu unduh kembali ke form, keluar, rekap kosong, keyboard saja di lebar 320px.
+- CSV di Excel dengan pengaturan regional Indonesia (pemisah daftar titik koma). Kalau kolom menumpuk di kolom A, pilihannya: CSV memakai titik koma, atau tambahkan baris `sep=,` di awal file. Belum diputuskan sampai ada hasil uji.
+- Admin di HP lewat LAN (Sprint 8): unduhan di Chrome Android dan Safari iOS.
+
 ## Sprint 8: Docker dan deploy LAN
 
 Tujuan: aplikasi jalan di VM dan bisa dibuka dari perangkat lain di Wi-Fi kantor.
