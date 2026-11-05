@@ -82,7 +82,11 @@ async function removeGuest(key: number) {
 const people = computed<PersonDraft[]>(() =>
   type.value === 'vip' ? [primary, ...guests.value] : [primary],
 )
-
+// Keputusan akhir terkonfirmasi atau daftar tunggu tetap di server. Ini hanya pemberitahuan awal,
+// dan angka sisa kursinya bisa sedikit basi kalau ada pendaftar lain yang lebih dulu.
+const headcount = computed(() => people.value.length)
+const isFull = computed(() => props.event.seats_left === 0)
+const exceedsSeats = computed(() => !isFull.value && headcount.value > props.event.seats_left)
 const fields = [
   { name: 'full_name', label: 'Nama lengkap', autocomplete: 'name', max: 100 },
   { name: 'email', label: 'Email', autocomplete: 'email', max: 254 },
@@ -159,10 +163,20 @@ function onSubmit() {
 
 <template>
   <BasePanel :aria-labelledby="titleId">
-    <h2 :id="titleId" class="text-2xl">Konfirmasi kehadiran</h2>
+    <h2 :id="titleId" class="text-2xl">
+      {{ isFull ? 'Masuk daftar tunggu' : 'Konfirmasi kehadiran' }}
+    </h2>
     <p class="mt-2 text-fg-muted">
       Isi data semua orang yang akan datang. Gratis, ini hanya untuk pendataan.
     </p>
+
+    <div v-if="isFull" class="mt-6 rounded-paper border-l-4 border-wait bg-void p-4">
+      <p class="font-heading text-lg font-bold">Kursi utama sudah penuh</p>
+      <p class="mt-1 text-fg-muted">
+        Kamu masih bisa daftar. Registrasimu masuk daftar tunggu, dan admin akan menghubungi kalau
+        ada kursi kosong.
+      </p>
+    </div>
 
     <form class="mt-6" novalidate @submit.prevent="onSubmit">
       <!-- Satu fieldset disabled mengunci semua kolom dan tombol sekaligus selama pengiriman. -->
@@ -323,12 +337,21 @@ function onSubmit() {
         </div>
 
         <div class="flex flex-col gap-3">
+          <!-- role="status" supaya pembaca layar mengumumkan peringatan ini saat tamu ditambah, tanpa memotong. -->
+          <div role="status">
+            <p v-if="exceedsSeats" class="rounded-paper border-l-4 border-wait bg-void p-4 text-sm">
+              Sisa {{ event.seats_left }} kursi, rombonganmu {{ headcount }} orang. Kalau tetap
+              dikirim, kalian masuk daftar tunggu bersama.
+            </p>
+          </div>
           <p v-if="errorCount > 0" role="alert" class="text-sm text-error">
             Ada {{ errorCount }} isian yang perlu dicek.
           </p>
           <p v-if="formError" role="alert" class="text-sm text-error">{{ formError }}</p>
           <BaseButton type="submit" block :loading="submitting">
-            {{ submitting ? 'Mengirim...' : 'Kirim konfirmasi' }}
+            {{
+              submitting ? 'Mengirim...' : isFull ? 'Kirim ke daftar tunggu' : 'Kirim konfirmasi'
+            }}
           </BaseButton>
         </div>
       </fieldset>
