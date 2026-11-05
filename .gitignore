@@ -29,3 +29,4 @@ desktop.ini
 *.sql.gz
 *.dump
 
+.claude/settings.local.json

@@ -29,8 +29,18 @@ sqlc diff
 
 step "backend: go vet"
 go vet ./...
+# File integration test hanya terbaca dengan tag ini. Di-vet juga supaya rusaknya ketahuan tanpa database.
+go vet -tags integration ./...
+
+step "backend: staticcheck"
+# Versi dipin. go run mengunduhnya sekali ke cache modul, tanpa mengubah go.mod.
+# Menangkap hal yang lolos go vet, misalnya hasil fungsi yang tidak pernah dipakai.
+staticcheck_version="v0.8.2"
+go run "honnef.co/go/tools/cmd/staticcheck@${staticcheck_version}" ./...
+go run "honnef.co/go/tools/cmd/staticcheck@${staticcheck_version}" -tags integration ./...
 
 step "backend: go test"
+# Hanya unit test. Integration test butuh database: ./scripts/test-integration.sh
 go test ./...
 
 cd "$root/frontend"
@@ -50,11 +60,15 @@ npm run --silent lint:check
 step "frontend: prettier"
 npm run --silent format:check
 
+step "frontend: vitest"
+# E2E butuh database dan server: ./scripts/test-e2e.sh
+npm run --silent test
+
 step "teks: em dash"
 # Aturan AntiSlop: teks yang dibaca pengguna tidak boleh memakai em dash.
 if grep -rnI $'\u2014' \
-  --include='*.vue' --include='*.ts' --include='*.css' --include='*.go' \
-  "$root/frontend/src" "$root/backend"; then
+  --include='*.vue' --include='*.ts' --include='*.css' --include='*.go' --include='*.json' --include='*.sh' \
+  "$root/frontend/src" "$root/frontend/e2e" "$root/backend" "$root/testdata" "$root/scripts"; then
   echo "Ganti em dash di atas dengan koma, titik, titik dua, atau kurung."
   false
 fi

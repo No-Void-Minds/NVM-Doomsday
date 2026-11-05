@@ -1,0 +1,14 @@
+{
+  "extends": "@tsconfig/node24/tsconfig.json",
+  "include": ["./**/*"],
+  "compilerOptions": {
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    // DOM untuk fungsi yang dijalankan di browser lewat page.evaluate.
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "noEmit": true,
+    "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.e2e.tsbuildinfo"
+  }
+}

@@ -37,3 +37,9 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Playwright: hasil, laporan, dan screenshot uji E2E
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

@@ -1,0 +1,30 @@
+{
+  "keterangan": "Kasus uji bersama NormalizeAccount (Go) dan normalizeAccount (frontend). Hasil mengikuti Go, karena server yang memutuskan VIP atau Solo dan menyimpan kuncinya di database.",
+  "kasus": [
+    {"input": "budi", "hasil": "budi"},
+    {"input": "Budi", "hasil": "budi"},
+    {"input": "BUDI_NVM", "hasil": "budi_nvm"},
+    {"input": "  Budi  ", "hasil": "budi"},
+    {"input": "\tBudi\n", "hasil": "budi"},
+    {"input": "@budi", "hasil": "budi"},
+    {"input": "@@budi", "hasil": "budi"},
+    {"input": " @UjiVIP ", "hasil": "ujivip", "catatan": "contoh di laporan Sprint 9"},
+    {"input": "ujivip", "hasil": "ujivip"},
+    {"input": "@ budi", "hasil": "budi"},
+    {"input": "budi@toko", "hasil": "budi@toko", "catatan": "@ di tengah tidak dibuang"},
+    {"input": "budi.nvm_official", "hasil": "budi.nvm_official"},
+    {"input": "Budi Santoso", "hasil": "budi santoso", "catatan": "spasi di tengah tetap"},
+    {"input": "@", "hasil": ""},
+    {"input": "@@", "hasil": ""},
+    {"input": "", "hasil": ""},
+    {"input": "   ", "hasil": ""},
+    {"input": "\u00a0budi\u00a0", "hasil": "budi", "catatan": "spasi tak terputus dari salinan web"},
+    {"input": "\u3000budi", "hasil": "budi"},
+    {"input": "\u00c9LODIE", "hasil": "\u00e9lodie"},
+    {"input": "\u1e9e", "hasil": "\u00df"},
+    {"input": "\ufeffbudi", "hasil": "budi", "catatan": "BOM di awal tempelan Excel atau CSV dibuang di kedua sisi"},
+    {"input": "\u0085budi", "hasil": "budi", "catatan": "NEL dibuang di kedua sisi"},
+    {"input": "\u0130stanbul", "hasil": "istanbul", "catatan": "Go satu rune i, JS i ditambah titik gabung", "go_only": true, "alasan": "Huruf kecil yang menentukan VIP hanya dihitung di backend. Di frontend, normalisasi hanya untuk pencarian dan cek kosong."},
+    {"input": "\u039f\u0394\u039f\u03a3", "hasil": "\u03bf\u03b4\u03bf\u03c3", "catatan": "JS memakai sigma akhir", "go_only": true, "alasan": "Huruf kecil yang menentukan VIP hanya dihitung di backend. Di frontend, normalisasi hanya untuk pencarian dan cek kosong."}
+  ]
+}

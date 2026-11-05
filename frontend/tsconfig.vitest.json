@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.app.json",
+  "include": ["env.d.ts", "src/**/__tests__/*"],
+  "exclude": [],
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.vitest.tsbuildinfo",
+    // Test membaca file kasus bersama di testdata/ lewat node:fs.
+    "types": ["node"]
+  }
+}
