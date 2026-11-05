@@ -12,6 +12,7 @@ import InviteOpening from '@/components/invite/InviteOpening.vue'
 import { useEvent } from '@/composables/useEvent'
 import { useRecipient } from '@/composables/useRecipient'
 import EventCountdown from '@/components/invite/EventCountdown.vue'
+import RegistrationForm from '@/components/invite/RegistrationForm.vue'
 
 const OPENED_KEY = 'doomsday_opened'
 
@@ -103,7 +104,12 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
       </div>
 
       <div class="flex min-w-0 flex-col gap-8">
-        <!-- Formulir konfirmasi kehadiran masuk di sini pada Sprint 6. -->
+        <div id="formulir" class="scroll-mt-8">
+          <RegistrationForm
+            v-if="eventState.kind === 'ready' && eventState.event.is_open"
+            :event="eventState.event"
+          />
+        </div>
         <section aria-labelledby="faq-title" class="flex flex-col gap-4">
           <h2 id="faq-title" class="text-2xl">Pertanyaan yang sering muncul</h2>
           <BaseAccordion :items="faq" :initially-open="0" />
