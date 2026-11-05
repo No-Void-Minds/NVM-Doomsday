@@ -15,6 +15,7 @@ import (
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/db/sqlc"
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/httpapi"
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/registration"
+	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/vip"
 )
 
 func main() {
@@ -43,7 +44,13 @@ func run(log *slog.Logger) error {
 		DB:            pool,
 		Queries:       sqlc.New(pool),
 		Registrations: registration.NewService(pool),
+		Vip:           vip.NewService(pool),
 	})
+	// Misalnya TRUSTED_PROXIES tidak valid. Tanpa cek ini server tetap jalan dengan router nil
+	// dan setiap request panic.
+	if err != nil {
+		return err
+	}
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,

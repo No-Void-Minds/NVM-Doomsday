@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -32,5 +33,123 @@ func (q *Queries) FindVipAccount(ctx context.Context, accountKey string) (FindVi
 	row := q.db.QueryRow(ctx, findVipAccount, accountKey)
 	var i FindVipAccountRow
 	err := row.Scan(&i.ID, &i.Used)
+	return i, err
+}
+
+const getVipAccountByKey = `-- name: GetVipAccountByKey :one
+SELECT id, account_name, account_key, is_active, created_at, updated_at FROM vip_accounts WHERE account_key = $1
+`
+
+func (q *Queries) GetVipAccountByKey(ctx context.Context, accountKey string) (VipAccount, error) {
+	row := q.db.QueryRow(ctx, getVipAccountByKey, accountKey)
+	var i VipAccount
+	err := row.Scan(
+		&i.ID,
+		&i.AccountName,
+		&i.AccountKey,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const insertVipAccount = `-- name: InsertVipAccount :one
+INSERT INTO vip_accounts (account_name, account_key)
+VALUES ($1, $2)
+ON CONFLICT (account_key) DO NOTHING
+RETURNING id, account_name, account_key, is_active, created_at, updated_at
+`
+
+type InsertVipAccountParams struct {
+	AccountName string
+	AccountKey  string
+}
+
+// Kalau nama yang sama masuk bersamaan dari jalur lain, baris kedua dilewati dan tidak ada baris yang kembali.
+func (q *Queries) InsertVipAccount(ctx context.Context, arg InsertVipAccountParams) (VipAccount, error) {
+	row := q.db.QueryRow(ctx, insertVipAccount, arg.AccountName, arg.AccountKey)
+	var i VipAccount
+	err := row.Scan(
+		&i.ID,
+		&i.AccountName,
+		&i.AccountKey,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listVipAccounts = `-- name: ListVipAccounts :many
+SELECT
+    v.id,
+    v.account_name,
+    v.is_active,
+    v.created_at,
+    COALESCE(r.code, '')::text AS registration_code
+FROM vip_accounts v
+LEFT JOIN registrations r ON r.vip_account_id = v.id AND r.status <> 'cancelled'
+ORDER BY v.is_active DESC, v.account_key
+`
+
+type ListVipAccountsRow struct {
+	ID               uuid.UUID
+	AccountName      string
+	IsActive         bool
+	CreatedAt        time.Time
+	RegistrationCode string
+}
+
+// Index unik parsial di 0004 menjamin paling banyak satu registrasi aktif per nama,
+// jadi LEFT JOIN ini tidak menggandakan baris. Kode kosong berarti nama belum dipakai.
+func (q *Queries) ListVipAccounts(ctx context.Context) ([]ListVipAccountsRow, error) {
+	rows, err := q.db.Query(ctx, listVipAccounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListVipAccountsRow{}
+	for rows.Next() {
+		var i ListVipAccountsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountName,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.RegistrationCode,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setVipAccountActive = `-- name: SetVipAccountActive :one
+UPDATE vip_accounts SET is_active = $1, updated_at = now()
+WHERE id = $2
+RETURNING id, account_name, account_key, is_active, created_at, updated_at
+`
+
+type SetVipAccountActiveParams struct {
+	IsActive bool
+	ID       uuid.UUID
+}
+
+func (q *Queries) SetVipAccountActive(ctx context.Context, arg SetVipAccountActiveParams) (VipAccount, error) {
+	row := q.db.QueryRow(ctx, setVipAccountActive, arg.IsActive, arg.ID)
+	var i VipAccount
+	err := row.Scan(
+		&i.ID,
+		&i.AccountName,
+		&i.AccountKey,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
 	return i, err
 }

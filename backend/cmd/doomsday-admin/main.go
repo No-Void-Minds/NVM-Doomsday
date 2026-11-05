@@ -9,6 +9,7 @@ import (
 
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/db"
 	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/registration"
+	"github.com/No-Void-Minds/nvm-doomsday/backend/internal/vip"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -42,6 +43,8 @@ func run(ctx context.Context, args []string) error {
 		return withPool(ctx, func(pool *pgxpool.Pool) error {
 			return registrationCmd(ctx, registration.NewService(pool), args)
 		})
+	case "vip":
+		return withPool(ctx, func(pool *pgxpool.Pool) error { return vipCmd(ctx, vip.NewService(pool), args[1:]) })
 	default:
 		return errUsage
 	}
@@ -54,10 +57,14 @@ Perintah:
   hash-password             baca sandi dari stdin, cetak hash bcrypt untuk ADMIN_PASSWORD_HASH
   event show                tampilkan konfigurasi acara dan jumlah peserta
   event set <field> <nilai> ubah satu field, nilai "-" mengosongkan field yang boleh kosong
-	promote <kode>            pindahkan registrasi daftar tunggu ke terkonfirmasi, kalau kursi cukup
+  promote <kode>            pindahkan registrasi daftar tunggu ke terkonfirmasi, kalau kursi cukup
   cancel <kode>             batalkan registrasi, kursinya dibebaskan
   rename <kode> <posisi> [--name ..] [--email ..] [--account ..]
                             ubah data satu peserta, posisi 0 pendaftar, 1 sampai 3 tamu
+  vip list                  tampilkan daftar nama akun VIP dan registrasi yang memakainya
+  vip add <nama>...         tambah satu atau beberapa nama akun VIP
+  vip off <nama>            nonaktifkan nama, registrasi yang sudah memakainya tetap VIP
+  vip on <nama>             aktifkan lagi nama yang pernah dinonaktifkan
 
 Field event: title, film_title, cinema_name, city, studio, gather_at, show_at,
              map_url, capacity, max_guests_vip, is_open
