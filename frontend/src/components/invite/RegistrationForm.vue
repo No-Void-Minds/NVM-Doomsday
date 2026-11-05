@@ -14,7 +14,17 @@ export interface RegistrationDraft {
   website: string
 }
 
-const props = defineProps<{ event: EventInfo }>()
+const props = withDefaults(
+  defineProps<{
+    event: EventInfo
+    submitting?: boolean
+    // Error dari server yang punya kolom, misalnya email yang sudah terdaftar.
+    serverErrors?: FieldErrors
+    // Error dari server tanpa kolom, misalnya sinyal putus atau terlalu banyak percobaan.
+    formError?: string | null
+  }>(),
+  { submitting: false, serverErrors: () => ({}), formError: null },
+)
 const emit = defineEmits<{ submit: [draft: RegistrationDraft] }>()
 
 interface PersonDraft extends AttendeeInput {
@@ -101,7 +111,31 @@ const consentInput = useTemplateRef<HTMLInputElement>('consentInput')
 
 const errorCount = computed(() => Object.keys(errors.value).length)
 
-async function onSubmit() {
+async function focusFirstError() {
+  await nextTick()
+  const order = [
+    ...people.value.flatMap((_, i) => fields.map((f) => `attendees[${i}].${f.name}`)),
+    'consent',
+  ]
+  const first = order.find((path) => path in errors.value)
+  if (first === 'consent') {
+    consentInput.value?.focus()
+  } else if (first) {
+    focusables.get(first)?.focus()
+  }
+}
+
+watch(
+  () => props.serverErrors,
+  (serverErrors) => {
+    if (Object.keys(serverErrors).length > 0) {
+      errors.value = { ...serverErrors }
+      focusFirstError()
+    }
+  },
+)
+
+function onSubmit() {
   const attendees = people.value.map(({ full_name, email, account_name }) => ({
     full_name,
     email,
@@ -110,17 +144,7 @@ async function onSubmit() {
   errors.value = validateRegistration({ type: type.value, attendees, consent: consent.value })
 
   if (errorCount.value > 0) {
-    await nextTick()
-    const order = [
-      ...people.value.flatMap((_, i) => fields.map((f) => `attendees[${i}].${f.name}`)),
-      'consent',
-    ]
-    const first = order.find((path) => path in errors.value)
-    if (first === 'consent') {
-      consentInput.value?.focus()
-    } else if (first) {
-      focusables.get(first)?.focus()
-    }
+    focusFirstError()
     return
   }
 
@@ -140,170 +164,174 @@ async function onSubmit() {
       Isi data semua orang yang akan datang. Gratis, ini hanya untuk pendataan.
     </p>
 
-    <form class="mt-6 flex flex-col gap-8" novalidate @submit.prevent="onSubmit">
-      <fieldset>
-        <legend class="text-sm font-medium">Pilih tipe</legend>
-        <div class="mt-2 grid grid-cols-2 gap-3">
-          <label
-            v-for="opt in [
-              { value: 'solo', label: 'Solo', hint: 'Kamu sendiri' },
-              { value: 'vip', label: 'VIP', hint: `Kamu + maksimal ${maxGuests} orang` },
-            ]"
-            :key="opt.value"
-            class="relative flex min-h-16 cursor-pointer flex-col justify-center rounded-paper border px-4 py-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-paper"
-            :class="type === opt.value ? 'border-paper' : 'border-line hover:border-fg-muted'"
-          >
-            <input
-              v-model="type"
-              type="radio"
-              name="registration-type"
-              :value="opt.value"
-              class="sr-only"
-            />
-            <span class="pr-6 font-heading text-lg">{{ opt.label }}</span>
-            <span class="text-sm text-fg-muted">{{ opt.hint }}</span>
-            <svg
-              v-if="type === opt.value"
-              class="absolute right-3 top-3 size-4 text-paper"
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden="true"
+    <form class="mt-6" novalidate @submit.prevent="onSubmit">
+      <!-- Satu fieldset disabled mengunci semua kolom dan tombol sekaligus selama pengiriman. -->
+      <fieldset :disabled="submitting" class="flex min-w-0 flex-col gap-8">
+        <fieldset>
+          <legend class="text-sm font-medium">Pilih tipe</legend>
+          <div class="mt-2 grid grid-cols-2 gap-3">
+            <label
+              v-for="opt in [
+                { value: 'solo', label: 'Solo', hint: 'Kamu sendiri' },
+                { value: 'vip', label: 'VIP', hint: `Kamu + maksimal ${maxGuests} orang` },
+              ]"
+              :key="opt.value"
+              class="relative flex min-h-16 cursor-pointer flex-col justify-center rounded-paper border px-4 py-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-paper"
+              :class="type === opt.value ? 'border-paper' : 'border-line hover:border-fg-muted'"
             >
-              <path
-                d="m3.5 8.5 3 3 6-7"
-                stroke="currentColor"
-                stroke-width="1.75"
-                stroke-linecap="round"
-                stroke-linejoin="round"
+              <input
+                v-model="type"
+                type="radio"
+                name="registration-type"
+                :value="opt.value"
+                class="sr-only"
               />
-            </svg>
-          </label>
-        </div>
-      </fieldset>
-
-      <fieldset class="flex flex-col gap-5">
-        <legend class="font-heading text-xl">Data kamu</legend>
-        <BaseField
-          v-for="f in fields"
-          :key="f.name"
-          :ref="(el) => register(`attendees[0].${f.name}`, el)"
-          v-model="primary[f.name]"
-          :label="f.label"
-          :type="f.name === 'email' ? 'email' : 'text'"
-          :inputmode="f.name === 'email' ? 'email' : undefined"
-          :autocomplete="f.autocomplete"
-          :maxlength="f.max"
-          :placeholder="f.name === 'email' ? 'nama@email.com' : f.label"
-          :error="errors[`attendees[0].${f.name}`]"
-          required
-          @update:model-value="clearError(`attendees[0].${f.name}`)"
-        />
-      </fieldset>
-
-      <section v-if="type === 'vip'" class="flex flex-col gap-4" aria-labelledby="guests-title">
-        <h3 id="guests-title" class="font-heading text-xl">
-          Tamu ({{ guests.length }} dari {{ maxGuests }})
-        </h3>
-        <p v-if="errors.attendees" class="text-sm text-error">{{ errors.attendees }}</p>
-
-        <fieldset
-          v-for="(guest, gi) in guests"
-          :key="guest.key"
-          class="flex flex-col gap-5 rounded-paper border border-line/60 p-4 sm:p-5"
-        >
-          <legend class="sr-only">Tamu {{ gi + 1 }}</legend>
-          <div class="flex items-center justify-between gap-4" aria-hidden="true">
-            <p class="font-heading text-lg">Tamu {{ gi + 1 }}</p>
+              <span class="pr-6 font-heading text-lg">{{ opt.label }}</span>
+              <span class="text-sm text-fg-muted">{{ opt.hint }}</span>
+              <svg
+                v-if="type === opt.value"
+                class="absolute right-3 top-3 size-4 text-paper"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="m3.5 8.5 3 3 6-7"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </label>
           </div>
+        </fieldset>
+
+        <fieldset class="flex flex-col gap-5">
+          <legend class="font-heading text-xl font-bold">Data kamu</legend>
           <BaseField
             v-for="f in fields"
             :key="f.name"
-            :ref="(el) => register(`attendees[${gi + 1}].${f.name}`, el)"
-            v-model="guest[f.name]"
+            :ref="(el) => register(`attendees[0].${f.name}`, el)"
+            v-model="primary[f.name]"
             :label="f.label"
             :type="f.name === 'email' ? 'email' : 'text'"
             :inputmode="f.name === 'email' ? 'email' : undefined"
-            autocomplete="off"
+            :autocomplete="f.autocomplete"
             :maxlength="f.max"
             :placeholder="f.name === 'email' ? 'nama@email.com' : f.label"
-            :error="errors[`attendees[${gi + 1}].${f.name}`]"
+            :error="errors[`attendees[0].${f.name}`]"
             required
-            @update:model-value="clearError(`attendees[${gi + 1}].${f.name}`)"
+            @update:model-value="clearError(`attendees[0].${f.name}`)"
           />
+        </fieldset>
+
+        <section v-if="type === 'vip'" class="flex flex-col gap-4" aria-labelledby="guests-title">
+          <h3 id="guests-title" class="font-heading text-xl">
+            Tamu ({{ guests.length }} dari {{ maxGuests }})
+          </h3>
+          <p v-if="errors.attendees" class="text-sm text-error">{{ errors.attendees }}</p>
+
+          <fieldset
+            v-for="(guest, gi) in guests"
+            :key="guest.key"
+            class="flex flex-col gap-5 rounded-paper border border-line/60 p-4 sm:p-5"
+          >
+            <legend class="sr-only">Tamu {{ gi + 1 }}</legend>
+            <p class="font-heading text-lg font-bold" aria-hidden="true">Tamu {{ gi + 1 }}</p>
+            <BaseField
+              v-for="f in fields"
+              :key="f.name"
+              :ref="(el) => register(`attendees[${gi + 1}].${f.name}`, el)"
+              v-model="guest[f.name]"
+              :label="f.label"
+              :type="f.name === 'email' ? 'email' : 'text'"
+              :inputmode="f.name === 'email' ? 'email' : undefined"
+              autocomplete="off"
+              :maxlength="f.max"
+              :placeholder="f.name === 'email' ? 'nama@email.com' : f.label"
+              :error="errors[`attendees[${gi + 1}].${f.name}`]"
+              required
+              @update:model-value="clearError(`attendees[${gi + 1}].${f.name}`)"
+            />
+            <BaseButton
+              v-if="guests.length > 1"
+              variant="text"
+              class="self-start"
+              @click="removeGuest(guest.key)"
+            >
+              <svg class="size-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+              Hapus Tamu {{ gi + 1 }}
+            </BaseButton>
+          </fieldset>
+
           <BaseButton
-            v-if="guests.length > 1"
-            variant="text"
-            class="self-start"
-            @click="removeGuest(guest.key)"
+            ref="addGuest"
+            variant="outline"
+            block
+            :disabled="!canAddGuest"
+            @click="addGuest"
           >
             <svg class="size-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path
-                d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"
+                d="M8 3v10M3 8h10"
                 stroke="currentColor"
-                stroke-width="1.5"
+                stroke-width="1.75"
                 stroke-linecap="round"
-                stroke-linejoin="round"
               />
             </svg>
-            Hapus Tamu {{ gi + 1 }}
+            Tambah tamu
           </BaseButton>
-        </fieldset>
+          <p v-if="!canAddGuest" class="text-sm text-fg-muted">
+            Sudah maksimal {{ maxGuests }} tamu.
+          </p>
+        </section>
 
-        <BaseButton
-          ref="addGuest"
-          variant="outline"
-          block
-          :disabled="!canAddGuest"
-          @click="addGuest"
-        >
-          <svg class="size-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path
-              d="M8 3v10M3 8h10"
-              stroke="currentColor"
-              stroke-width="1.75"
-              stroke-linecap="round"
+        <div class="flex flex-col gap-2">
+          <p class="text-sm text-fg-muted">Semua isian wajib diisi, termasuk data tamu.</p>
+          <label class="flex min-h-11 cursor-pointer items-start gap-3 pt-2">
+            <input
+              ref="consentInput"
+              v-model="consent"
+              type="checkbox"
+              class="mt-0.5 size-5 shrink-0 accent-paper"
+              :aria-invalid="errors.consent ? true : undefined"
+              :aria-describedby="errors.consent ? 'consent-error' : undefined"
+              @change="clearError('consent')"
             />
-          </svg>
-          Tambah tamu
-        </BaseButton>
-        <p v-if="!canAddGuest" class="text-sm text-fg-muted">
-          Sudah maksimal {{ maxGuests }} tamu.
-        </p>
-      </section>
+            <span>Data ini hanya dipakai untuk acara nonton bareng ini.</span>
+          </label>
+          <p v-if="errors.consent" id="consent-error" class="text-sm text-error">
+            {{ errors.consent }}
+          </p>
+        </div>
 
-      <div class="flex flex-col gap-2">
-        <p class="text-sm text-fg-muted">Semua isian wajib diisi, termasuk data tamu.</p>
-        <label class="flex min-h-11 cursor-pointer items-start gap-3 pt-2">
-          <input
-            ref="consentInput"
-            v-model="consent"
-            type="checkbox"
-            class="mt-0.5 size-5 shrink-0 accent-paper"
-            :aria-invalid="errors.consent ? true : undefined"
-            :aria-describedby="errors.consent ? 'consent-error' : undefined"
-            @change="clearError('consent')"
-          />
-          <span>Data ini hanya dipakai untuk acara nonton bareng ini.</span>
-        </label>
-        <p v-if="errors.consent" id="consent-error" class="text-sm text-error">
-          {{ errors.consent }}
-        </p>
-      </div>
+        <!-- Honeypot: tidak terlihat dan tidak bisa dicapai keyboard. Manusia tidak pernah mengisinya. -->
+        <div class="absolute -left-[9999px] size-px overflow-hidden" aria-hidden="true">
+          <label>
+            Jangan diisi
+            <input v-model="website" type="text" name="website" tabindex="-1" autocomplete="off" />
+          </label>
+        </div>
 
-      <!-- Honeypot: tidak terlihat dan tidak bisa dicapai keyboard. Manusia tidak pernah mengisinya. -->
-      <div class="absolute -left-[9999px] size-px overflow-hidden" aria-hidden="true">
-        <label>
-          Jangan diisi
-          <input v-model="website" type="text" name="website" tabindex="-1" autocomplete="off" />
-        </label>
-      </div>
-
-      <div class="flex flex-col gap-3">
-        <p v-if="errorCount > 0" role="alert" class="text-sm text-error">
-          Ada {{ errorCount }} isian yang perlu dicek.
-        </p>
-        <BaseButton type="submit" block>Kirim konfirmasi</BaseButton>
-      </div>
+        <div class="flex flex-col gap-3">
+          <p v-if="errorCount > 0" role="alert" class="text-sm text-error">
+            Ada {{ errorCount }} isian yang perlu dicek.
+          </p>
+          <p v-if="formError" role="alert" class="text-sm text-error">{{ formError }}</p>
+          <BaseButton type="submit" block :loading="submitting">
+            {{ submitting ? 'Mengirim...' : 'Kirim konfirmasi' }}
+          </BaseButton>
+        </div>
+      </fieldset>
     </form>
   </BasePanel>
 </template>

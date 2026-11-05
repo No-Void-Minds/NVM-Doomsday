@@ -13,6 +13,11 @@ import { useEvent } from '@/composables/useEvent'
 import { useRecipient } from '@/composables/useRecipient'
 import EventCountdown from '@/components/invite/EventCountdown.vue'
 import RegistrationForm from '@/components/invite/RegistrationForm.vue'
+import { api } from '@/api/client'
+import type { RegistrationResult } from '@/api/types'
+import type { RegistrationDraft } from '@/components/invite/RegistrationForm.vue'
+import type { FieldErrors } from '@/lib/validation'
+import { newIdempotencyKey } from '@/lib/uuid'
 
 const OPENED_KEY = 'doomsday_opened'
 
@@ -21,6 +26,57 @@ const { state: eventState, reload, refresh } = useEvent()
 const faq = computed(() =>
   buildFaq(eventState.value.kind === 'ready' ? eventState.value.event : null),
 )
+// Hanya path yang punya kolom di formulir yang ditempel ke kolom. Sisanya ditampilkan di atas tombol kirim.
+const FORM_FIELD = /^(attendees\[\d+\]\.(full_name|email|account_name)|consent|attendees)$/
+
+const submitting = ref(false)
+const serverErrors = ref<FieldErrors>({})
+const formError = ref<string | null>(null)
+const result = ref<RegistrationResult | null>(null)
+
+// Key yang sama dipakai ulang selama isi formulir tidak berubah. Kalau kiriman pertama sebenarnya sudah
+// sampai tapi jawabannya hilang karena sinyal putus, kiriman ulang mendapat pendaftaran yang sama dari server.
+let attempt: { fingerprint: string; key: string } | null = null
+
+async function onRegister(draft: RegistrationDraft) {
+  const fingerprint = JSON.stringify(draft)
+  if (attempt === null || attempt.fingerprint !== fingerprint) {
+    attempt = { fingerprint, key: newIdempotencyKey() }
+  }
+
+  submitting.value = true
+  formError.value = null
+  serverErrors.value = {}
+  const res = await api.register({ ...draft, idempotency_key: attempt.key })
+  submitting.value = false
+
+  if (res.ok) {
+    result.value = res.data
+    attempt = null
+    refresh()
+    return
+  }
+
+  const { code, message, fields } = res.error
+  if (code === 'registration_closed') {
+    // Formulir disembunyikan dan panel kursi berganti jadi "Pendaftaran sudah ditutup." setelah data diperbarui.
+    refresh()
+    return
+  }
+
+  const known: FieldErrors = {}
+  const other: string[] = []
+  for (const f of fields) {
+    if (FORM_FIELD.test(f.field)) {
+      known[f.field] = f.message
+    } else {
+      other.push(f.message)
+    }
+  }
+  serverErrors.value = known
+  formError.value =
+    other.length > 0 ? other.join(' ') : Object.keys(known).length > 0 ? null : message
+}
 // sessionStorage bisa diblokir di mode privat atau browser bawaan aplikasi. Kalau gagal, amplop tetap jalan
 // dan hanya muncul lagi saat halaman dimuat ulang.
 function readOpened(): boolean {
@@ -105,9 +161,27 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
 
       <div class="flex min-w-0 flex-col gap-8">
         <div id="formulir" class="scroll-mt-8">
+          <!-- Sementara sampai kartu akses hangtag dibuat di langkah 4. -->
+          <BasePanel v-if="result" role="status">
+            <h2 class="text-2xl">Pendaftaran tercatat.</h2>
+            <p class="mt-2 text-fg-muted">Kode registrasi</p>
+            <p class="font-mono text-2xl">{{ result.code }}</p>
+            <p class="mt-2 text-fg-muted">
+              Status:
+              {{
+                result.status === 'confirmed'
+                  ? 'Terkonfirmasi'
+                  : `Daftar tunggu, nomor urut ${result.waitlist_position}`
+              }}
+            </p>
+          </BasePanel>
           <RegistrationForm
-            v-if="eventState.kind === 'ready' && eventState.event.is_open"
+            v-else-if="eventState.kind === 'ready' && eventState.event.is_open"
             :event="eventState.event"
+            :submitting="submitting"
+            :server-errors="serverErrors"
+            :form-error="formError"
+            @submit="onRegister"
           />
         </div>
         <section aria-labelledby="faq-title" class="flex flex-col gap-4">

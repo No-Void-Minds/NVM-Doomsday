@@ -28,7 +28,16 @@
     outline: 2px solid var(--color-paper);
     outline-offset: 2px;
   }
-
+  /* Chrome mewarnai kolom hasil isi otomatis dengan biru muda, di luar palet. Bayangan dalam menimpa
+     latar itu dengan warna void, dan transisi panjang mencegah Chrome mengembalikannya. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--color-fg);
+    box-shadow: 0 0 0 1000px var(--color-void) inset;
+    transition: background-color 9999s;
+    caret-color: var(--color-fg);
+  }
   /* Animasi amplop dan transisi lain dimatikan untuk pengguna yang meminta gerak dikurangi (NFR-03). */
   @media (prefers-reduced-motion: reduce) {
     *,
