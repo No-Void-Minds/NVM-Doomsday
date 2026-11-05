@@ -346,16 +346,54 @@ Dokumen yang perlu diperbarui:
 
 Tujuan: pendaftaran ujung ke ujung dari browser.
 
-1. Pilihan Solo atau VIP, data pendaftar, tamu dinamis 1 sampai 3 (tombol tambah nonaktif di 3 tamu, hapus tamu dengan fokus yang tidak hilang).
-2. Validasi di klien dengan aturan yang sama dengan backend, ringkasan error diumumkan, fokus ke field salah pertama.
-3. Pesan error dari backend dipetakan ke field yang tepat (email terdaftar menunjuk baris yang bermasalah).
-4. Mode daftar tunggu saat kursi habis, peringatan saat sisa kursi kurang dari jumlah rombongan.
-5. Status mengirim: tombol nonaktif, input dikunci, idempotency key dibuat sekali per percobaan kirim.
-6. Kartu akses terkonfirmasi dan daftar tunggu, tombol "Simpan kartu akses" (PNG) dan "Salin kode".
-7. Kartu disimpan di localStorage dalam try/catch, dibaca lagi saat pendaftar kembali.
+1. Formulir: Solo atau VIP sebagai radio button, data pendaftar, tamu 1 sampai `max_guests_vip`, tamu tidak terhapus saat pindah ke Solo, fokus ke tombol tambah tamu setelah tamu dihapus.
+2. Validasi di browser dengan aturan dan pesan yang sama dengan backend, ringkasan jumlah isian salah, fokus ke kolom salah pertama, pesan hilang saat kolomnya diubah.
+3. Kirim ke API: formulir terkunci saat mengirim, idempotency key dibuat sekali per isi formulir dengan `crypto.getRandomValues`, error server ditempel ke kolomnya, error tanpa kolom di atas tombol kirim.
+4. Mode daftar tunggu saat kursi habis, peringatan saat rombongan lebih besar dari sisa kursi.
+5. Kartu akses hangtag: lubang tali, logo NVM, stempel, garis sobek bertakik, kode registrasi, peserta, acara, jadwal. Varian daftar tunggu dengan "Nomor urut {n} saat mendaftar".
+6. Simpan kartu sebagai PNG (menu bagikan di HTTPS, unduhan biasa, dan gambar untuk ditekan lama), salin kode dengan cadangan untuk HTTP.
+7. Kartu diingat di `localStorage` dengan pemeriksaan bentuk data, "Daftarkan orang lain", tombol ke formulir di layar di bawah 1024px.
 
 Selesai bila: pendaftaran Solo, VIP, dan daftar tunggu berhasil dari browser dan tercatat di database, check.sh lulus.
 Referensi: FR-10 sampai FR-24.
+
+### Laporan
+
+Status: selesai, 5 November 2026.
+
+Hasil uji:
+- Solo, VIP dua tamu, dan daftar tunggu berhasil dari browser, dan tercatat di tabel `registrations` dan `attendees` dengan status, posisi, dan kode yang sama dengan kartu.
+- Email yang sudah terdaftar ditolak server dan pesannya tampil di kolom tamu yang tepat, tanpa baris baru di database.
+- Peringatan rombongan muncul dan hilang saat tamu ditambah dan dihapus, mode daftar tunggu tampil saat kursi habis.
+- PNG kartu utuh dengan font D-DIN, JetBrains Mono, dan logo NVM, setelah perbaikan margin.
+- Kartu tampil lagi saat link dibuka ulang di perangkat yang sama, dengan catatan tanggal penyimpanan.
+
+Keputusan:
+- Idempotency key memakai `crypto.getRandomValues`, karena `crypto.randomUUID` tidak tersedia di HTTP lewat IP LAN.
+- Salin kode memakai `execCommand` sebagai cadangan, karena Clipboard API juga hanya ada di HTTPS.
+- Simpan kartu juga menampilkan gambarnya, karena browser bawaan WhatsApp dan Instagram sering mengabaikan unduhan.
+- Kartu yang dipulihkan menyebut tanggal penyimpanan dan bahwa perubahan status dikabarkan admin, karena belum ada endpoint untuk menanyakan status terbaru sebuah kode.
+- Tombol "Konfirmasi kehadiran" di kolom kiri hanya di bawah 1024px, berupa link biasa ke `#formulir`.
+- Label kolom "Nama akun" belum diberi petunjuk karena jenis akunnya belum diputuskan NVM.
+
+Bentol yang ditemui:
+- Kolom hasil isi otomatis Chrome berwarna biru di luar palet. Diperbaiki dengan gaya `-webkit-autofill`.
+- Judul "Data kamu" tidak tebal karena berupa `legend`, bukan `h3`. Diberi `font-bold`.
+- PNG kartu terpotong di kanan karena margin `mx-auto` ikut tergambar. Diperbaiki dengan `style: { margin: '0' }` saat menggambar.
+- `html-to-image` sempat terpasang di root repo, bukan di `frontend/`, sehingga build Docker akan gagal. Dipindah, dan `.gitignore` sekarang mengabaikan `node_modules/` di mana pun.
+
+Dipindah ke Sprint 8:
+- Uji dari HP lewat IP LAN: idempotency key, salin kode lewat cadangan, simpan kartu dengan tekan lama.
+
+Dipindah ke Sprint 9:
+- Vitest untuk `validateRegistration` dan `newIdempotencyKey`, serta kesamaan pesan dengan backend.
+- Uji keyboard penuh formulir: pilihan tipe dengan tombol panah, tambah dan hapus tamu, fokus setelah gagal dan setelah berhasil.
+
+Dipindah ke Sprint 10:
+- Uji menu bagikan bawaan HP untuk simpan kartu, yang hanya aktif di HTTPS.
+
+Untuk dipertimbangkan:
+- Endpoint publik untuk menanyakan status terbaru berdasarkan kode, supaya kartu yang dipulihkan bisa memperbarui statusnya sendiri.
 
 ## Sprint 7: Halaman admin (frontend)
 
