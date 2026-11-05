@@ -61,7 +61,7 @@ func (q *Queries) FirstWaitlisted(ctx context.Context) (FirstWaitlistedRow, erro
 }
 
 const getRegistrationByCode = `-- name: GetRegistrationByCode :one
-SELECT id, code, type, status, idempotency_key, consent_at, created_at, status_changed_at FROM registrations WHERE code = $1
+SELECT id, code, type, status, idempotency_key, consent_at, created_at, status_changed_at, vip_account_id FROM registrations WHERE code = $1
 `
 
 func (q *Queries) GetRegistrationByCode(ctx context.Context, code string) (Registration, error) {
@@ -76,12 +76,13 @@ func (q *Queries) GetRegistrationByCode(ctx context.Context, code string) (Regis
 		&i.ConsentAt,
 		&i.CreatedAt,
 		&i.StatusChangedAt,
+		&i.VipAccountID,
 	)
 	return i, err
 }
 
 const getRegistrationByIdempotencyKey = `-- name: GetRegistrationByIdempotencyKey :one
-SELECT id, code, type, status, idempotency_key, consent_at, created_at, status_changed_at FROM registrations WHERE idempotency_key = $1
+SELECT id, code, type, status, idempotency_key, consent_at, created_at, status_changed_at, vip_account_id FROM registrations WHERE idempotency_key = $1
 `
 
 func (q *Queries) GetRegistrationByIdempotencyKey(ctx context.Context, idempotencyKey uuid.UUID) (Registration, error) {
@@ -96,6 +97,7 @@ func (q *Queries) GetRegistrationByIdempotencyKey(ctx context.Context, idempoten
 		&i.ConsentAt,
 		&i.CreatedAt,
 		&i.StatusChangedAt,
+		&i.VipAccountID,
 	)
 	return i, err
 }
@@ -129,7 +131,7 @@ func (q *Queries) InsertAttendee(ctx context.Context, arg InsertAttendeeParams) 
 const insertRegistration = `-- name: InsertRegistration :one
 INSERT INTO registrations (code, type, status, idempotency_key, consent_at, created_at, status_changed_at)
 VALUES ($1, $2, $3, $4, clock_timestamp(), clock_timestamp(), clock_timestamp())
-RETURNING id, code, type, status, idempotency_key, consent_at, created_at, status_changed_at
+RETURNING id, code, type, status, idempotency_key, consent_at, created_at, status_changed_at, vip_account_id
 `
 
 type InsertRegistrationParams struct {
@@ -159,6 +161,7 @@ func (q *Queries) InsertRegistration(ctx context.Context, arg InsertRegistration
 		&i.ConsentAt,
 		&i.CreatedAt,
 		&i.StatusChangedAt,
+		&i.VipAccountID,
 	)
 	return i, err
 }
@@ -237,7 +240,7 @@ func (q *Queries) UpdateAttendee(ctx context.Context, arg UpdateAttendeeParams) 
 }
 
 const updateRegistrationStatus = `-- name: UpdateRegistrationStatus :one
-UPDATE registrations SET status = $1 WHERE code = $2 RETURNING id, code, type, status, idempotency_key, consent_at, created_at, status_changed_at
+UPDATE registrations SET status = $1 WHERE code = $2 RETURNING id, code, type, status, idempotency_key, consent_at, created_at, status_changed_at, vip_account_id
 `
 
 type UpdateRegistrationStatusParams struct {
@@ -258,6 +261,7 @@ func (q *Queries) UpdateRegistrationStatus(ctx context.Context, arg UpdateRegist
 		&i.ConsentAt,
 		&i.CreatedAt,
 		&i.StatusChangedAt,
+		&i.VipAccountID,
 	)
 	return i, err
 }

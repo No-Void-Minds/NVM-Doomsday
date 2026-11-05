@@ -176,4 +176,14 @@ type Registration struct {
 	ConsentAt       time.Time
 	CreatedAt       time.Time
 	StatusChangedAt time.Time
+	VipAccountID    *uuid.UUID
+}
+
+type VipAccount struct {
+	ID          uuid.UUID
+	AccountName string
+	AccountKey  string
+	IsActive    bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
