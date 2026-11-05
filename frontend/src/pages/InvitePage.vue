@@ -19,10 +19,7 @@ import type { RegistrationDraft } from '@/components/invite/RegistrationForm.vue
 import type { FieldErrors } from '@/lib/validation'
 import { newIdempotencyKey } from '@/lib/uuid'
 import AccessCard from '@/components/invite/AccessCard.vue'
-import KeyVisual from '@/components/invite/KeyVisual.vue'
-import { doomsdayAssets } from '@/content/assets'
-
-const keyVisual = doomsdayAssets[0] ?? null
+import SideVisuals from '@/components/invite/SideVisuals.vue'
 
 const OPENED_KEY = 'doomsday_opened'
 
@@ -193,7 +190,7 @@ onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibil
   <InviteOpening v-if="!opened" :recipient="recipient" @open="onOpen" />
 
   <main v-else class="mx-auto w-full max-w-xl px-4 py-10 lg:max-w-[70rem] lg:px-8 lg:py-16">
-    <KeyVisual v-if="keyVisual" :asset="keyVisual" class="mb-10 lg:mb-16" />
+    <SideVisuals />
     <!-- Kolom kiri tidak menempel saat digulir: tingginya melebihi layar laptop kebanyakan,
          dan kolom menempel yang lebih tinggi dari layar menyembunyikan bagian bawahnya. -->
     <div class="grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16">
