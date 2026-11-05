@@ -1,84 +1,102 @@
 # Sprint nvm-doomsday
 
 Rencana kerja landing page undangan nonton bareng Avengers: Doomsday untuk No Void Minds.
-Acuan kebutuhan: SRS v0.2 (`docs/SRS-NVM-Doomsday-v0.2.docx`). Kode FR/NFR di bawah merujuk ke dokumen itu.
-Acuan tampilan: proyek Stitch "Void screening invitation system" (versi final yang sudah direview).
+
+- Acuan kebutuhan: SRS v0.2 (`docs/SRS-NVM-Doomsday-v0.2.docx`). Kode FR dan NFR di bawah merujuk ke dokumen itu. SRS v0.3 ditulis setelah semua sprint selesai.
+- Acuan tampilan: proyek Stitch "Void screening invitation system", lalu identitas NVM sejak Sprint 5.
 
 ## Cara kerja
 
 - Satu langkah dikerjakan sampai jalan, baru lanjut ke langkah berikutnya.
 - Setiap langkah selesai: `./scripts/check.sh && git commit && git push`.
-- Pengujian menyeluruh dilakukan di Sprint 9 setelah semua fitur selesai. Sampai saat itu, `check.sh` menjaga format, lint, dan type check.
+- Pengujian menyeluruh dilakukan di Sprint 10 setelah semua fitur selesai. Sampai saat itu, `check.sh` menjaga format, lint, type check, dan em dash.
+- Uji yang ditunda dari setiap sprint dikumpulkan di checklist Sprint 10.
 - Status: `belum`, `jalan`, `selesai`, `tertahan` (menunggu keputusan).
 
 ## Ringkasan status
 
-| Sprint | Isi | Status |
-|---|---|---|
-| 0 | Fondasi repo, tooling, check.sh | belum |
-| 1 | Database dan migrasi (backend) | belum |
-| 2 | API publik: event dan pendaftaran (backend) | belum |
-| 3 | API admin, ekspor, CLI admin (backend) | belum |
-| 4 | Kerangka dan komponen dasar (frontend) | belum |
-| 5 | Halaman undangan (frontend) | belum |
-| 6 | Formulir dan kartu akses (frontend) | belum |
-| 7 | Halaman admin (frontend) | belum |
-| 8 | Docker dan deploy LAN | belum |
-| 9 | Pengujian menyeluruh | belum |
-| 10 | Rilis publik lewat Cloudflare Tunnel | tertahan |
+| Sprint | Isi | Status | Tanggal |
+|---|---|---|---|
+| 0 | Fondasi repo, tooling, check.sh | selesai | 30 Okt 2026 |
+| 1 | Database dan migrasi | selesai | 30 Okt 2026 |
+| 2 | API publik: event dan pendaftaran | selesai | 30 Okt 2026 |
+| 3 | API admin, ekspor, CLI admin | selesai | 4 Nov 2026 |
+| 4 | Kerangka dan komponen dasar frontend | selesai | 4 Nov 2026 |
+| 5 | Halaman undangan | selesai | 4 Nov 2026 |
+| 6 | Formulir dan kartu akses | selesai | 5 Nov 2026 |
+| 7 | Halaman admin | selesai | 5 Nov 2026 |
+| 8 | Docker dan deploy LAN | selesai | 5 Nov 2026 |
+| 9 | Revisi: cek nama akun VIP dan aset Doomsday | belum | |
+| 10 | Pengujian menyeluruh | belum | |
+| 11 | Rilis publik lewat Cloudflare Tunnel | tertahan | |
 
 ## Stack
 
-- Backend (`backend/`): Go 1.27, Gin, pgx/v5, sqlc 1.31.1, golang-migrate, excelize (XLSX), encoding/csv.
-- Frontend (`frontend/`): Vue 3.5, TypeScript, Vite, Tailwind v4, Vue Router. Tanpa Pinia, karena state cukup di composable.
-- Font: @fontsource Archivo, Archivo Narrow, IBM Plex Mono (di-host sendiri).
-- Database: PostgreSQL 18 di container yang sudah ada di VM `nvm-server`. Database `nvm_doomsday`, role `doomsday_app` (hanya punya akses ke database itu).
-- Deploy: Docker Compose di VM, akses LAN `http://<IP VM>:8090`.
+| Bagian | Isi |
+|---|---|
+| Backend (`backend/`) | Go 1.27, Gin, pgx/v5, sqlc 1.31.1, golang-migrate, excelize (XLSX), encoding/csv, bcrypt |
+| Frontend (`frontend/`) | Vue 3.5, TypeScript, Vite 8, Tailwind v4, Vue Router, html-to-image. Tanpa Pinia, state cukup di composable |
+| Font | D-DIN (woff2 di `public/fonts`, lisensi OFL) dan JetBrains Mono (@fontsource), semua di-host sendiri |
+| Database | PostgreSQL 18 di container `nvm-internal-postgres` di VM `nvm-server`. Database `nvm_doomsday`, role `doomsday_migrator` (pemilik, hanya untuk migrasi) dan `doomsday_app` (backend dan CLI, hanya SELECT, INSERT, UPDATE) |
+| Deploy | Docker Compose di VM, akses LAN `http://192.168.68.144:8090` |
 
 ## Struktur repo
 
+```
 nvm-doomsday/
   backend/
     cmd/
-      server/main.go
-      doomsday-admin/main.go
+      server/            API
+      doomsday-admin/    CLI admin
     internal/
+      adminauth/         sesi admin HMAC
       config/
       db/
-        queries/       file .sql untuk sqlc
-        sqlc/          hasil generate, jangan diedit manual
+        queries/         file .sql untuk sqlc
+        sqlc/            hasil generate, jangan diedit manual
+      export/            CSV dan XLSX
       httpapi/
       registration/
-      export/
+      timezone/          WIB sebagai offset tetap
     migrations/
+    Dockerfile
     sqlc.yaml
     .env.example
-    go.mod
-  frontend/            dibuat oleh create-vite
+  frontend/
+    public/              brand, fonts, favicon
     src/
       api/
       components/
+        invite/
       composables/
+      content/           isi FAQ
+      lib/               tanggal, validasi, uuid, clipboard
       pages/
       router/
       styles/
-  deploy/              diisi di Sprint 8
+    Dockerfile
+    nginx.conf
+  deploy/
+    docker-compose.yml
+    .env.example
+    backup.sh
   docs/
   scripts/
-  .gitignore
-  README.md
+    check.sh
+    dev-db-tunnel.sh
+```
 
 Backend dan frontend tidak saling import. Satu-satunya kontrak di antara keduanya adalah API di SRS bagian 7.
 
 ## Port
 
-| Layanan | Dev (laptop) | Server (VM) |
+| Layanan | Dev (PC) | Server (VM) |
 |---|---|---|
-| Backend | 127.0.0.1:8081 | internal container, tidak dibuka ke LAN |
-| Frontend | 127.0.0.1:5174 (Vite, proxy `/api` ke 8081) | 0.0.0.0:8090 |
-| Postgres | 127.0.0.1:15432 lewat SSH tunnel | container yang sudah ada |
+| Backend | 127.0.0.1:8081 | 8080 di dalam container, tidak dibuka ke host |
+| Frontend | 127.0.0.1:5174 (Vite, proxy `/api` ke 8081) | 0.0.0.0:8090 (Nginx) |
+| Postgres | 127.0.0.1:15432 lewat SSH tunnel | `nvm-internal-postgres:5432` di network `nvm-internal_default` |
 
-Port 8081 dan 5174 dipilih agar tidak bentrok dengan NVM-Internal (8080, 5173).
+Port 8081 dan 5174 dipilih agar tidak bentrok dengan NVM-Internal (8080, 5173). Port 8092 di VM dipakai compro.
 
 ---
 
@@ -86,51 +104,52 @@ Port 8081 dan 5174 dipilih agar tidak bentrok dengan NVM-Internal (8080, 5173).
 
 Tujuan: repo siap dikerjakan, `check.sh` hijau dengan proyek kosong.
 
-1. Buat repo `nvm-doomsday` dengan folder `backend/`, `frontend/`, `deploy/`, `scripts/`, `docs/`, plus `.gitignore` dan `.editorconfig` di root.
-2. Backend: `go mod init` di `backend/`, `cmd/api/main.go` yang menjawab `GET /api/health`, `.env.example`.
-3. Frontend: aplikasi Vite Vue TS di `frontend/`, pasang Tailwind v4, ESLint, Prettier, vue-tsc, proxy `/api` ke backend di `vite.config.ts`, `.env.example`.
-4. Token warna, font, radius dari SRS 11.3 sampai 11.5 di `frontend/src/styles/tokens.css` (sebagai `@theme` Tailwind). Pasang @fontsource.
-5. `scripts/check.sh` di root: bagian backend (gofmt, go vet, go test ./...) dijalankan dari `backend/`, bagian frontend (vue-tsc --noEmit, eslint, prettier --check) dari `frontend/`. Berhenti di error pertama dan sebutkan bagian mana yang gagal.
-6. `scripts/dev-db-tunnel.sh` untuk membuka SSH tunnel ke Postgres di VM (port lokal 15432).
+1. Repo `nvm-doomsday` dengan folder `backend/`, `frontend/`, `deploy/`, `scripts/`, `docs/`, plus `.gitignore` dan `.editorconfig` di root.
+2. Backend: `go mod init`, endpoint `GET /api/health`, `.env.example`.
+3. Frontend: aplikasi Vite Vue TS, Tailwind v4, ESLint, Prettier, vue-tsc, proxy `/api` ke backend.
+4. Token warna, font, radius dari SRS 11.3 sampai 11.5 sebagai `@theme` Tailwind.
+5. `scripts/check.sh`: backend (gofmt, go vet, go test) dari `backend/`, frontend (vue-tsc, eslint, prettier) dari `frontend/`. Berhenti di error pertama dan menyebut bagian yang gagal.
+6. `scripts/dev-db-tunnel.sh` untuk SSH tunnel ke Postgres di VM (port lokal 15432).
 
-Selesai bila: `./scripts/check.sh` lulus, backend dan frontend jalan bersamaan, halaman frontend memanggil `/api/health` lewat proxy dan memakai font serta warna dari token.
+Selesai bila: `check.sh` lulus, backend dan frontend jalan bersamaan, frontend memanggil `/api/health` lewat proxy dan memakai token.
 
 ### Laporan
 
 Status: selesai, 30 Oktober 2026.
 
 Hasil:
-- `./scripts/check.sh` lulus untuk backend dan frontend.
-- Backend menjawab `GET /api/health`, frontend memanggilnya lewat proxy Vite dengan state memuat, berhasil, dan gagal.
-- Token warna, font (di-host sendiri), radius, dan bayangan dari SRS 11.3 sampai 11.5 terpasang di `frontend/src/styles/tokens.css`.
-- `scripts/dev-db-tunnel.sh` terbukti menyambung ke Postgres di VM lewat port lokal 15432.
+- `check.sh` lulus untuk backend dan frontend.
+- Frontend memanggil `/api/health` lewat proxy Vite dengan state memuat, berhasil, dan gagal.
+- Token terpasang di `frontend/src/styles/tokens.css`, font di-host sendiri.
+- Tunnel menyambung ke Postgres di VM lewat port 15432.
 
 Perubahan dari rencana:
-- Struktur repo mengikuti pola NVM-Internal: `cmd/server`, `internal/db/queries` dan `internal/db/sqlc`, `internal/httpapi`, `composables/` sebagai pengganti `stores/`. `.env.example` hanya di backend. Tidak ada `docker-compose.dev.yml` karena database dev memakai Postgres di VM.
-- Frontend dibuat dengan create-vue (TypeScript, Router, ESLint, Prettier), tanpa fitur eksperimental.
-- Ditambahkan `.gitattributes` (akhir baris LF) karena pengembangan di Windows sementara script dijalankan di Linux.
-- Ditambahkan `.vscode/extensions.json` dan `.vscode/settings.json` supaya editor selalu menambahkan newline di akhir file dan memformat saat simpan.
-- `check.sh` ditambah cek em dash di teks backend dan frontend (aturan AntiSlop).
+- Struktur mengikuti NVM-Internal: `cmd/server`, `internal/db/queries` dan `internal/db/sqlc`, `internal/httpapi`, `composables/` sebagai pengganti `stores/`. Tidak ada `docker-compose.dev.yml` karena database dev memakai Postgres di VM.
+- Frontend dibuat dengan create-vue (TypeScript, Router, ESLint, Prettier).
+- `.gitattributes` (akhir baris LF), karena kode ditulis di Windows dan dijalankan di Linux.
+- `.vscode/extensions.json` dan `.vscode/settings.json` supaya editor menambahkan newline di akhir file dan memformat saat simpan.
+- `check.sh` ditambah cek em dash (aturan AntiSlop).
 - Izin eksekusi script dicatat di Git dengan `git add --chmod=+x`.
 
-Bentol yang ditemui:
-- Prettier dan gofmt menolak file yang tidak diakhiri newline. Penyebab: editor tidak membaca `.editorconfig`. Diselesaikan dengan `.vscode/settings.json`.
-- Sempat mencoba login Postgres dengan user Linux `nvmadmin`. User Postgres berbeda dari user SSH VM.
+Bentol:
+- Prettier dan gofmt menolak file tanpa newline di akhir, karena editor tidak membaca `.editorconfig`. Diselesaikan dengan `.vscode/settings.json`.
+- Login Postgres sempat memakai user Linux `nvmadmin`. User Postgres berbeda dari user SSH VM.
 
+---
 
-## Sprint 1: Database (backend)
+## Sprint 1: Database
 
 Tujuan: skema sesuai SRS bagian 6, bisa dimigrasi naik dan turun.
 
-1. Di VM: database `nvm_doomsday`, role `doomsday_migrator` (pemilik) dan `doomsday_app` (SELECT, INSERT, UPDATE lewat default privileges). Izin CONNECT dicabut dari PUBLIC di `nvm_doomsday`, `nvm_internal`, dan `nvm_internal_test`.
-2. Backend tersambung lewat pgxpool (maksimal 10 koneksi), `GET /api/health` ikut mengecek database dan menjawab 503 saat database putus.
-3. Migrasi 0001: enum `registration_type`, `registration_status`, `attendee_role`; tabel `event_config`, `registrations`, `attendees` dengan CHECK untuk format kode, email huruf kecil, dan posisi peserta.
-4. Migrasi 0002: index unik email untuk peserta aktif, index `registrations(status, created_at)`, trigger yang menjaga `status_changed_at` dan `attendees.is_active` sinkron dengan status.
+1. Di VM: database `nvm_doomsday`, role `doomsday_migrator` dan `doomsday_app`, izin CONNECT dicabut dari PUBLIC di `nvm_doomsday`, `nvm_internal`, dan `nvm_internal_test`.
+2. pgxpool (maksimal 10 koneksi), `/api/health` ikut mengecek database dan menjawab 503 saat database putus.
+3. Migrasi 0001: enum `registration_type`, `registration_status`, `attendee_role`, tabel `event_config`, `registrations`, `attendees` dengan CHECK untuk kode, email huruf kecil, dan posisi peserta.
+4. Migrasi 0002: index unik email peserta aktif, index `registrations(status, created_at)`, trigger untuk `status_changed_at` dan `attendees.is_active`.
 5. Migrasi 0003: seed `event_config` (capacity 200, max_guests_vip 3, lokasi dan jadwal NULL).
-6. sqlc: query acara, pendaftaran, ringkasan admin, dan ekspor. `check.sh` menjalankan `sqlc diff`.
+6. sqlc untuk acara, pendaftaran, ringkasan, dan ekspor. `check.sh` menjalankan `sqlc diff`.
 7. Uji migrate down dan up penuh.
 
-Selesai bila: `migrate down -all` dan `migrate up` bersih, izin dan seed terbentuk ulang, `sqlc generate` tanpa error, check.sh lulus.
+Selesai bila: `migrate down -all` dan `migrate up` bersih, izin dan seed terbentuk ulang, `sqlc generate` tanpa error, `check.sh` lulus.
 Referensi: SRS 6.1 sampai 6.3, NFR-06.
 
 ### Laporan
@@ -139,41 +158,34 @@ Status: selesai, 30 Oktober 2026.
 
 Perubahan dari rencana:
 - Dua role database, bukan satu. `doomsday_app` tidak punya DDL dan DELETE, supaya celah di backend tidak bisa menghapus tabel atau data peserta.
-- Kolom `attendees.is_active` ditambahkan. Index unik email hanya untuk peserta aktif butuh kolom ini, karena index tidak bisa membaca kolom dari tabel `registrations`. Nilainya dijaga trigger, bukan kode aplikasi.
-- Index terpisah untuk `attendees(registration_id)` tidak dibuat, karena sudah tercakup index dari `UNIQUE (registration_id, position)`.
-- Nomor migrasi: 0001 tabel, 0002 index dan trigger, 0003 seed. Migrasi yang sudah dijalankan tidak diedit, perubahan selalu jadi migrasi baru.
-- `created_at` registrasi memakai `clock_timestamp()` supaya urutan daftar tunggu sama dengan urutan pendaftaran diproses.
+- Kolom `attendees.is_active` ditambahkan, karena index unik email untuk peserta aktif tidak bisa membaca kolom dari tabel `registrations`. Nilainya dijaga trigger.
+- Tidak ada index terpisah untuk `attendees(registration_id)`, karena sudah tercakup `UNIQUE (registration_id, position)`.
+- Migrasi yang sudah dijalankan tidak pernah diedit. Perubahan selalu jadi migrasi baru.
+- `created_at` registrasi memakai `clock_timestamp()` supaya urutan daftar tunggu sama dengan urutan diproses.
 
-Bentol yang ditemui:
-- Query hak akses sempat dijalankan di database `postgres` karena koneksi TablePlus belum pindah database. Sudah dikembalikan ke pengaturan bawaan. Pelajaran: selalu cek nama database di bar atas TablePlus sebelum menjalankan SQL yang mengubah izin.
-- Sandi role sempat tidak cocok dan nama database ikut spasi saat ditempel. Diselesaikan dengan `ALTER ROLE ... PASSWORD` dan mengetik ulang nama database.
+Bentol:
+- Query hak akses sempat dijalankan di database `postgres` karena koneksi TablePlus belum pindah database. Sudah dikembalikan. Pelajaran: cek nama database di bar atas TablePlus sebelum menjalankan SQL yang mengubah izin.
+- Sandi role tidak cocok dan nama database ikut spasi saat ditempel. Diselesaikan dengan `ALTER ROLE ... PASSWORD` dan mengetik ulang.
 
 Catatan di luar repo ini:
-- Backend NVM-Internal login sebagai `nvm_internal`, yang superuser. Sebaiknya NVM-Internal punya role aplikasi sendiri seperti `doomsday_app`, dan `nvm_internal` hanya untuk administrasi.
-- Riwayat query TablePlus menyimpan perintah `CREATE ROLE` dan `ALTER ROLE` beserta sandinya. Hapus dari tab History.
+- Backend NVM-Internal login sebagai `nvm_internal`, yang superuser. Sebaiknya NVM-Internal punya role aplikasi sendiri.
+- Riwayat query TablePlus menyimpan `CREATE ROLE` dan `ALTER ROLE` beserta sandinya. Hapus dari tab History.
 
-Dipindah ke Sprint 9:
-- Uji health saat database putus, pulih tanpa restart, dan gagal di awal saat database tidak terjangkau.
-- Uji trigger: membatalkan registrasi membuat email pesertanya bisa dipakai lagi.
+---
 
-Selesai bila: `migrate up` dan `migrate down` bersih di database dev, `sqlc generate` tanpa error, check.sh lulus.
-Referensi: SRS 6.1 sampai 6.3, NFR-06.
-
-- Database: PostgreSQL 18 di container yang sudah ada di VM `nvm-server`. Database `nvm_doomsday` dengan dua role: `doomsday_migrator` (pemilik, hanya untuk migrasi) dan `doomsday_app` (backend dan CLI, hanya SELECT, INSERT, UPDATE).
-
-## Sprint 2: API publik (backend)
+## Sprint 2: API publik
 
 Tujuan: dua endpoint publik bekerja sesuai SRS bagian 7.
 
-1. Request ID acak per request (header `X-Request-ID`), log akses JSON tanpa IP, query string, atau body, format error seragam `{"error": {"code", "message", "fields"}}`, recovery panic yang menjawab JSON.
-2. `GET /api/event`: detail acara, `is_open`, `seats_left`, `waitlisted_attendees`, `max_guests_vip`. Field kosong dikirim `null`. Header `Cache-Control: no-store`.
-3. Validasi input di paket `registration`: tipe, jumlah peserta (Solo 1, VIP 2 sampai 4), nama 1 sampai 100 karakter, email valid maksimal 254, nama akun 1 sampai 50, trim spasi, email huruf kecil, tanpa email ganda dalam satu formulir, persetujuan wajib, honeypot `website` harus kosong.
-4. Generator kode `NVM-DD-XXXXXX` dengan `crypto/rand` dari alfabet tanpa O, I, L, 0, 1, plus `NormalizeCode` untuk kode yang diketik manusia.
-5. Transaksi pendaftaran: kunci baris event, cek idempotency key, cek `is_open`, cek batas tamu VIP yang berlaku, cek email aktif, hitung sisa kursi, tentukan `confirmed` atau `waitlisted` untuk seluruh rombongan, buat kode unik, simpan, baca hasil sebelum commit.
-6. `POST /api/registrations`: 201 untuk pendaftaran baru, 200 untuk kiriman ulang dengan idempotency key yang sama, 409 untuk ditutup dan email terdaftar, 422 untuk isian salah, body maksimal 16 KB.
-7. Rate limit per IP (10 beruntun, lalu 1 per 6 detik), `TRUSTED_PROXIES` dari env, wajib `Content-Type: application/json` (415 kalau bukan).
+1. Request ID per request (`X-Request-ID`), log akses JSON tanpa IP, query string, atau body, format error `{"error": {"code", "message", "fields"}}`, recovery panic yang menjawab JSON.
+2. `GET /api/event`: detail acara, `is_open`, `seats_left`, `waitlisted_attendees`, `max_guests_vip`, field kosong `null`, `Cache-Control: no-store`.
+3. Validasi di paket `registration`: tipe, jumlah peserta (Solo 1, VIP 2 sampai 4), nama 1 sampai 100 karakter, email valid maksimal 254, nama akun 1 sampai 50, trim, email huruf kecil, tanpa email ganda dalam satu formulir, persetujuan wajib, honeypot `website` kosong.
+4. Kode `NVM-DD-XXXXXX` dengan `crypto/rand` dari alfabet tanpa O, I, L, 0, 1, plus `NormalizeCode`.
+5. Transaksi: kunci baris event, cek idempotency key, `is_open`, batas tamu VIP, email aktif, sisa kursi, status seluruh rombongan, kode unik, simpan.
+6. `POST /api/registrations`: 201 baru, 200 kiriman ulang dengan key sama, 409 ditutup dan email terdaftar, 422 isian salah, body maksimal 16 KB.
+7. Rate limit per IP (10 beruntun, lalu 1 per 6 detik), `TRUSTED_PROXIES` dari env, wajib `Content-Type: application/json` (415).
 
-Selesai bila: semua kode respons di SRS 7 bisa dipicu lewat curl, check.sh lulus.
+Selesai bila: semua kode respons di SRS 7 bisa dipicu lewat curl, `check.sh` lulus.
 Referensi: FR-10 sampai FR-19, FR-21, NFR-05, NFR-06, NFR-08.
 
 ### Laporan
@@ -181,38 +193,40 @@ Referensi: FR-10 sampai FR-19, FR-21, NFR-05, NFR-06, NFR-08.
 Status: selesai, 30 Oktober 2026.
 
 Hasil uji curl:
-- Solo baru 201, kiriman ulang key sama 200 dengan kode sama, email sama berhuruf kapital 409 `duplicate_email`.
-- Isian salah 422 dengan pesan per kolom, VIP dengan satu tamu 201.
-- Kapasitas diturunkan ke 3: VIP masuk daftar tunggu utuh dengan nomor urut 1, `seats_left` 0.
-- `is_open` false: 409 `registration_closed`.
-- Kiriman tanpa JSON 415. Kiriman beruntun ke-10 dan seterusnya 429.
-- Data uji dihapus, `event_config` dikembalikan ke kapasitas 200 dan terbuka.
+
+| Uji | Hasil |
+|---|---|
+| Solo baru | 201 |
+| Kiriman ulang dengan key sama | 200, kode sama |
+| Email sama berhuruf kapital | 409 `duplicate_email` |
+| Isian salah | 422 dengan pesan per kolom |
+| VIP satu tamu | 201 |
+| Kapasitas 3, VIP datang | masuk daftar tunggu utuh, nomor urut 1, `seats_left` 0 |
+| `is_open` false | 409 `registration_closed` |
+| Bukan JSON | 415 |
+| Kiriman beruntun ke-10 dan seterusnya | 429 |
+
+Data uji dihapus, `event_config` dikembalikan ke kapasitas 200 dan terbuka.
 
 Perubahan dari rencana:
-- CORS tidak dipasang. Frontend dan API selalu satu origin (proxy Vite di dev, Nginx di server), jadi tanpa header CORS browser sudah menolak situs lain membaca API. Kiriman lintas situs berjenis `text/plain` ditutup dengan mewajibkan `application/json`.
-- Idempotency key dicek di dalam transaksi setelah kunci event didapat, bukan sebelumnya, supaya dua kiriman dengan key sama tidak sama-sama lolos. Langkah 6 jadi bagian dari langkah 5.
-- Langkah 5 dipecah: logika transaksi di paket `registration`, handler HTTP terpisah.
+- CORS tidak dipasang. Frontend dan API selalu satu origin (proxy Vite di dev, Nginx di server). Kiriman lintas situs berjenis `text/plain` ditutup dengan mewajibkan `application/json`.
+- Idempotency key dicek di dalam transaksi setelah kunci event didapat, supaya dua kiriman dengan key sama tidak sama-sama lolos. Langkah 6 jadi bagian dari langkah 5.
+- Logika transaksi di paket `registration`, handler HTTP terpisah.
 - Batas tamu VIP dicek dua kali: batas mutlak 3 saat validasi, `max_guests_vip` yang berlaku di dalam transaksi.
-- Batas rate dibuat longgar karena banyak pengguna HP berbagi satu IP publik dari operator.
+- Rate limit dibuat longgar karena banyak pengguna HP berbagi satu IP publik dari operator.
 
-Dipindah ke Sprint 8:
-- Isi `TRUSTED_PROXIES` dengan subnet network Docker Nginx, lalu pastikan rate limit membaca IP asli pengunjung, bukan IP Nginx.
+---
 
-Dipindah ke Sprint 9:
-- Uji balapan: banyak pendaftaran serentak saat sisa kursi sedikit tidak boleh melebihi kapasitas.
-- Unit test validasi dan generator kode.
-
-
-## Sprint 3: API admin, ekspor, CLI (backend)
+## Sprint 3: API admin, ekspor, CLI
 
 Tujuan: admin bisa masuk, melihat ringkasan, mengunduh data, dan mengelola status lewat CLI.
 
-1. Login admin: sandi dicek terhadap hash bcrypt (cost 12) di `ADMIN_PASSWORD_HASH`. Sesi berupa cookie `doomsday_admin` berisi waktu kedaluwarsa dan HMAC dari `SESSION_SECRET`, HttpOnly, SameSite=Strict, path `/api/admin`, berlaku 8 jam. `Secure` diatur lewat `COOKIE_SECURE`. Rate limit login 5 beruntun lalu 1 per 12 detik per IP. Endpoint: `POST /api/admin/login`, `POST /api/admin/logout`, `GET /api/admin/session`.
-2. `GET /api/admin/summary`: kapasitas, peserta terkonfirmasi, peserta daftar tunggu, registrasi batal.
-3. `GET /api/admin/export?format=csv` dan `format=xlsx`: kolom FR-32, urutan FR-33, waktu WIB, nama file FR-35. CSV memakai BOM UTF-8, CRLF, dan apostrof untuk sel berawalan `=`, `+`, `-`, `@`, tab, atau CR. XLSX dengan judul tebal dan terkunci.
-4. CLI `doomsday-admin`: `hash-password`, `event show`, `event set <field> <nilai>`, `promote <kode>`, `cancel <kode>`, `rename <kode> <posisi> [--name] [--email] [--account]`. Setiap perubahan mencetak keadaan sebelum dan sesudah.
+1. Login: bcrypt cost 12 dari `ADMIN_PASSWORD_HASH`. Cookie `doomsday_admin` berisi kedaluwarsa dan HMAC dari `SESSION_SECRET`, HttpOnly, SameSite=Strict, path `/api/admin`, 8 jam, `Secure` lewat `COOKIE_SECURE`. Rate limit 5 beruntun lalu 1 per 12 detik. Endpoint `POST /api/admin/login`, `POST /api/admin/logout`, `GET /api/admin/session`.
+2. `GET /api/admin/summary`: kapasitas, terkonfirmasi, daftar tunggu, batal.
+3. `GET /api/admin/export?format=csv|xlsx`: kolom FR-32, urutan FR-33, waktu WIB, nama file FR-35. CSV dengan BOM UTF-8, CRLF, apostrof untuk sel berawalan `=`, `+`, `-`, `@`, tab, atau CR. XLSX dengan judul tebal dan terkunci.
+4. CLI `doomsday-admin`: `hash-password`, `event show`, `event set <field> <nilai>`, `promote <kode>`, `cancel <kode>`, `rename <kode> <posisi> [--name] [--email] [--account]`, masing-masing mencetak keadaan sebelum dan sesudah.
 
-Selesai bila: file CSV dan XLSX terbuka benar di Excel, CLI jalan di database dev, check.sh lulus.
+Selesai bila: CSV dan XLSX terbuka benar di Excel, CLI jalan di database dev, `check.sh` lulus.
 Referensi: FR-30 sampai FR-38.
 
 ### Laporan
@@ -220,45 +234,40 @@ Referensi: FR-30 sampai FR-38.
 Status: selesai, 4 November 2026.
 
 Hasil uji:
-- Login: tanpa cookie 401, sandi salah 401 `invalid_password`, sandi benar 204, cookie HttpOnly dengan path `/api/admin`.
-- Ringkasan: 401 tanpa cookie, 200 dengan `Cache-Control: no-store`, angka cocok dengan database.
-- Ekspor: format salah 422, nama file dengan jam WIB, BOM ada, urutan terkonfirmasi lalu daftar tunggu lalu batal, nomor urut daftar tunggu ikut maju saat registrasi di depannya dibatalkan, `=1+1` dan `@uji2` diberi apostrof di CSV, XLSX menampilkannya sebagai teks. File kosong berisi judul kolom saja.
-- CLI event: field opsional bisa dikosongkan dengan `-`, jam dibaca sebagai WIB, jam kumpul setelah jam tayang ditolak CHECK database, link non-https dan kapasitas di luar 1 sampai 10000 ditolak.
-- CLI status: sepuluh skenario promote, cancel, rename lolos, termasuk kode huruf kecil, rombongan yang tidak muat, email yang sudah dipakai, dan posisi kosong.
-- Email dari registrasi yang dibatalkan bisa dipakai mendaftar lagi (trigger `is_active` dari migrasi 0002 terbukti).
+
+| Bagian | Hasil |
+|---|---|
+| Login | tanpa cookie 401, sandi salah 401 `invalid_password`, sandi benar 204, cookie HttpOnly dengan path `/api/admin` |
+| Ringkasan | 401 tanpa cookie, 200 dengan `no-store`, angka cocok dengan database |
+| Ekspor | format salah 422, nama file dengan jam WIB, BOM ada, urutan terkonfirmasi lalu daftar tunggu lalu batal, nomor urut ikut maju saat registrasi di depannya batal, `=1+1` dan `@uji2` diberi apostrof di CSV dan tampil sebagai teks di XLSX, file kosong berisi judul kolom |
+| CLI event | `-` mengosongkan field opsional, jam dibaca WIB, jam kumpul setelah jam tayang ditolak CHECK, link non-https dan kapasitas di luar 1 sampai 10000 ditolak |
+| CLI status | sepuluh skenario promote, cancel, rename lolos, termasuk kode huruf kecil, rombongan tidak muat, email terpakai, posisi kosong |
+| Trigger | email dari registrasi batal bisa dipakai mendaftar lagi |
 
 Perubahan dari rencana:
-- Langkah 3 dan 4 digabung: pengamanan CSV ditulis bersama kode yang menulis CSV.
-- Langkah 5 dan 6 digabung: ringkasan sebelum dan sesudah langsung jadi bagian setiap perintah CLI.
-- `COOKIE_SECURE` dibuat bisa diatur karena Sprint 8 masih HTTP lewat LAN. Wajib `true` di Sprint 10.
-- CLI login sebagai `doomsday_app`, cukup `DATABASE_URL`, tidak butuh hash sandi atau session secret.
-- `promote` dan `cancel` memakai kunci event yang sama dengan pendaftaran, supaya tidak balapan dengan pendaftar baru. Promosi dari daftar tunggu tetap manual, CLI hanya menyebut registrasi teratas.
-- Zona waktu WIB didefinisikan sekali di `internal/timezone` sebagai offset tetap UTC+7.
-- `GET /api/event` mengirim waktu dalam UTC supaya keluaran tidak bergantung pada zona waktu mesin. Perubahan ini ikut masuk di commit `4e6e825` (CLI event), bukan commit tersendiri.
-- "Waktu ekspor terakhir" di FR-37 ditunda: butuh tabel baru untuk mencatat ekspor dan tidak ada di desain yang sudah direview.
+- Pengamanan CSV ditulis bersama kode penulis CSV.
+- Ringkasan sebelum dan sesudah langsung jadi bagian setiap perintah CLI.
+- `COOKIE_SECURE` bisa diatur karena Sprint 8 masih HTTP lewat LAN. Wajib `true` di Sprint 11.
+- CLI login sebagai `doomsday_app`, cukup `DATABASE_URL`.
+- `promote` dan `cancel` memakai kunci event yang sama dengan pendaftaran. Promosi dari daftar tunggu tetap manual, CLI hanya menyebut registrasi teratas.
+- WIB didefinisikan sekali di `internal/timezone` sebagai offset tetap UTC+7.
+- `GET /api/event` mengirim waktu dalam UTC supaya tidak bergantung pada zona waktu mesin (ikut di commit `4e6e825`).
+- "Waktu ekspor terakhir" (FR-37) ditunda karena butuh tabel baru dan tidak ada di desain yang direview.
 
-Keputusan untuk Sprint 6:
-- Nomor urut daftar tunggu bisa maju setelah pendaftar mendapat kartu. Kartu akses perlu menulis "nomor urut saat mendaftar", atau frontend perlu cara mengambil posisi terbaru.
+---
 
-Dipindah ke Sprint 8:
-- Cara menjalankan CLI di server: `docker compose exec doomsday-backend doomsday-admin <perintah>`.
-
-Dipindah ke Sprint 9:
-- Buka file CSV ekspor di Excel dengan pengaturan regional Indonesia. Kalau semua isi menumpuk di satu kolom, putuskan antara pemisah titik koma atau XLSX sebagai format utama untuk Excel.
-- Unit test `adminauth` (token kedaluwarsa, tanda tangan salah) dan `export` (urutan, nomor urut, sanitasi CSV).
-
-## Sprint 4: Kerangka (frontend)
+## Sprint 4: Kerangka frontend
 
 Tujuan: fondasi UI yang dipakai semua halaman.
 
-1. Router: `/` (undangan), `/admin` (dimuat terpisah), halaman tidak ditemukan, dan `/_komponen` khusus development. Judul tab per halaman. Parameter `?to=` lewat `useRecipient`: buang karakter kontrol dan penanda arah teks, rapikan spasi, potong 60 karakter Unicode, `?to=` ganda dianggap kosong.
-2. Klien API di `frontend/src/api/`: tipe untuk semua respons dan error, hasil selalu berbentuk `{ok, status, data}` atau `{ok, status, error}`. Batas waktu 15 detik, putus jaringan jadi `network_error`, respons bukan JSON jadi `internal_error`.
-3. Komponen `BaseButton` (primary, outline, text, memuat, nonaktif, lebar penuh), `BaseField` (label, petunjuk, error, `aria-describedby`, `aria-invalid`, fungsi `focus`), `BasePanel`.
-4. Komponen `BaseStamp`, `VoidSlit`, `BaseAccordion` (Enter, Space, Escape, `aria-expanded`, `aria-controls`), `BaseSkeleton`.
-5. Composable `useEvent` dengan state memuat, siap, gagal, plus `reload` dan `refresh` diam-diam.
-6. Halaman `/_komponen` dicek di 320px dan 1440px.
+1. Router: `/`, `/admin` (dimuat terpisah), halaman tidak ditemukan, `/_komponen` khusus development, judul tab per halaman. `?to=` lewat `useRecipient`: buang karakter kontrol dan penanda arah teks, rapikan spasi, potong 60 karakter, parameter ganda dianggap kosong.
+2. Klien API: tipe semua respons, hasil `{ok, status, data}` atau `{ok, status, error}`, batas waktu 15 detik, putus jaringan jadi `network_error`, respons bukan JSON jadi `internal_error`.
+3. `BaseButton`, `BaseField`, `BasePanel`.
+4. `BaseStamp`, `VoidSlit`, `BaseAccordion` (Enter, Space, Escape), `BaseSkeleton`.
+5. `useEvent` dengan memuat, siap, gagal, `reload`, dan `refresh` diam-diam.
+6. `/_komponen` dicek di 320px dan 1440px.
 
-Selesai bila: halaman contoh komponen tampil benar di 320px dan 1440px tanpa scroll horizontal, check.sh lulus.
+Selesai bila: halaman contoh komponen benar di 320px dan 1440px tanpa scroll horizontal, `check.sh` lulus.
 Referensi: NFR-01 sampai NFR-03, SRS 11.
 
 ### Laporan
@@ -266,37 +275,37 @@ Referensi: NFR-01 sampai NFR-03, SRS 11.
 Status: selesai, 4 November 2026.
 
 Hasil uji:
-- `?to=` dengan spasi berlebih, tag HTML, penanda arah teks, 80 karakter, dan parameter ganda tampil sesuai aturan sanitasi.
-- `/admin` dimuat sebagai file terpisah, halaman tidak ditemukan bisa kembali ke undangan dengan keyboard.
-- Klien API dari console: event 200, ringkasan tanpa login 401, sandi salah 401, pendaftaran kosong 422 dengan pesan per kolom.
-- Komponen: focus ring terlihat di semua kontrol, kontrol nonaktif dilewati Tab, label memindahkan fokus ke kolomnya, pesan error terbaca sebagai deskripsi kolom, Escape menutup jawaban accordion dan fokus tetap di pertanyaannya, panah accordion tidak berputar saat gerak dikurangi.
-- `useEvent`: memuat, gagal saat backend mati, pulih dengan "Coba lagi", refresh diam-diam mempertahankan data saat gagal dan memperbarui angka saat berhasil.
-- Tidak ada scroll horizontal di 320px dan 1440px.
-- Hasil build produksi tidak memuat halaman `/_komponen` maupun teksnya.
+- `?to=` dengan spasi berlebih, tag HTML, penanda arah teks, 80 karakter, dan parameter ganda tampil sesuai aturan.
+- `/admin` dimuat sebagai file terpisah. Halaman tidak ditemukan bisa kembali ke undangan dengan keyboard.
+- Klien API: event 200, ringkasan tanpa login 401, sandi salah 401, pendaftaran kosong 422 per kolom.
+- Komponen: focus ring terlihat, kontrol nonaktif dilewati Tab, label memindahkan fokus, error terbaca sebagai deskripsi kolom, Escape menutup accordion dan fokus tetap di pertanyaan, panah tidak berputar saat gerak dikurangi.
+- `useEvent`: gagal saat backend mati, pulih dengan "Coba lagi", refresh diam-diam mempertahankan data saat gagal.
+- Tanpa scroll horizontal di 320px dan 1440px.
+- Build produksi tidak memuat `/_komponen` maupun teksnya.
 
 Keputusan:
-- Nama komponen diawali `Base` karena aturan ESLint Vue mewajibkan nama komponen dua kata.
-- Halaman contoh komponen dibuat sejak langkah 3, dan hanya ada di development lewat `import.meta.env.DEV`.
-- Seluruh situs `noindex, nofollow`: undangan disebar lewat link dan halaman admin tidak boleh terindeks.
-- Skeleton tanpa animasi berdenyut, sesuai aturan tidak ada animasi berulang tanpa pemicu pengguna.
+- Nama komponen diawali `Base` karena ESLint Vue mewajibkan nama dua kata.
+- Seluruh situs `noindex, nofollow`.
+- Skeleton tanpa animasi berdenyut.
 - Accordion memakai tombol, bukan `<details>`, karena `<details>` tidak bisa ditutup dengan Escape.
 - Latar kolom isian memakai `void` supaya tetap terlihat di dalam panel.
-- Kapital dan spasi renggang hanya di
+- Kapital dengan spasi renggang hanya di stempel (diperluas ke label spesifikasi di Sprint 5).
 
-## Sprint 5: Halaman undangan (frontend)
+---
+
+## Sprint 5: Halaman undangan
 
 Tujuan: alur pembuka sampai isi undangan dengan identitas visual NVM.
 
-0. Identitas NVM: palet dari tema gelap Shopify NVM (`#08090b`, `#0d0f12`, `#e8ebef`, krem `#e8e3d5`), font D-DIN dan JetBrains Mono, tombol utama krem. Oranye dan font Archivo serta IBM Plex dihapus.
-0b. Aset brand dari NVM: logo, favicon, D-DIN woff2 dengan lisensi OFL.
-1. Format tanggal dan jam WIB (`Asia/Jakarta`), isi FAQ yang membaca kapasitas dan batas tamu dari data acara.
-2. Amplop pembuka dengan logo NVM, stempel, dan celah Void gelap di bibir amplop. Animasi sekitar 600 ms, fokus pindah ke judul isi undangan, langsung tanpa animasi bila gerak dikurangi, hanya sekali per sesi.
-3. Lembar spesifikasi acara bergaya label produk NVM, menggantikan dossier. "Menyusul" untuk data kosong, link peta hanya bila ada.
-4. Hitung mundur ke jam tayang dengan bingkai celah Void, tiga keadaan: jadwal kosong, berjalan, sudah dimulai.
-5. Panel sisa kursi, kursi penuh dengan jumlah daftar tunggu, dan pendaftaran ditutup. Diperbarui diam-diam saat tab kembali terlihat.
-6. FAQ, layout satu kolom di bawah 1024px dan dua kolom di atasnya.
+1. Identitas NVM: palet dari tema gelap Shopify NVM (`#08090b`, `#0d0f12`, `#e8ebef`, krem `#e8e3d5`), D-DIN dan JetBrains Mono, tombol utama krem. Oranye, Archivo, dan IBM Plex dihapus. Logo, favicon, dan D-DIN dari aset NVM.
+2. Tanggal dan jam WIB (`Asia/Jakarta`), FAQ yang membaca kapasitas dan batas tamu dari data acara.
+3. Amplop pembuka dengan logo NVM, stempel, dan celah Void gelap. Animasi sekitar 600 ms, fokus pindah ke judul, tanpa animasi bila gerak dikurangi, sekali per sesi.
+4. Lembar spesifikasi bergaya label produk NVM, "Menyusul" untuk data kosong, link peta hanya bila ada.
+5. Hitung mundur ke jam tayang dengan bingkai celah Void: jadwal kosong, berjalan, sudah dimulai.
+6. Panel sisa kursi, penuh dengan jumlah daftar tunggu, dan ditutup. Diperbarui saat tab kembali terlihat.
+7. FAQ, satu kolom di bawah 1024px dan dua kolom di atasnya.
 
-Selesai bila: alur undangan bisa dicapai di browser dengan data dev, check.sh lulus.
+Selesai bila: alur undangan bisa dicapai dengan data dev, `check.sh` lulus.
 Referensi: FR-01 sampai FR-08, SRS 4, SRS 11.
 
 ### Laporan
@@ -304,57 +313,46 @@ Referensi: FR-01 sampai FR-08, SRS 4, SRS 11.
 Status: selesai, 4 November 2026.
 
 Hasil uji:
-- Komponen tampil dengan palet dan font NVM, font dimuat dari server sendiri.
-- Lembar spesifikasi: "Menyusul" pudar dan kalimat penjelasan muncul saat data kosong, tanggal "Jumat, 18 Desember 2026" dan jam "18.15 WIB" serta "19.00 WIB" benar pada data contoh, link peta hanya muncul bila ada URL.
+- Palet dan font NVM tampil, font dimuat dari server sendiri.
+- Lembar spesifikasi: "Menyusul" pudar dengan kalimat penjelasan, tanggal "Jumat, 18 Desember 2026" dan jam "18.15 WIB" serta "19.00 WIB" benar pada data contoh, link peta hanya muncul bila ada URL.
 - Hitung mundur ke `2026-12-16 19:00` menunjukkan 42 hari 1 jam 39 menit pada 4 November 17.21, sesuai perhitungan.
 - FAQ membaca "200 kursi" dan "maksimal 3 orang" dari data acara.
-- Layout dua kolom di layar lebar, satu kolom di HP.
+- Dua kolom di layar lebar, satu kolom di HP.
 
 Perubahan dari rencana:
-- Arah desain diganti dari "berkas rahasia" ke bahasa produk NVM, karena desain awal tidak memakai aset brand NVM sama sekali dan pola berkas rahasia terlalu umum. Dossier jadi lembar spesifikasi, kartu akses akan jadi hangtag di Sprint 6. Manajer setuju.
+- Arah desain diganti dari "berkas rahasia" ke bahasa produk NVM, karena desain awal tidak memakai aset brand NVM dan pola berkas rahasia terlalu umum. Dossier jadi lembar spesifikasi, kartu akses jadi hangtag. Manajer setuju.
 - Desain baru langsung dikoding, tanpa memperbarui Stitch.
-- Label mono kapital dengan spasi renggang dipakai di lembar spesifikasi, mengikuti gaya label di tema Shopify NVM. Sebelumnya hanya untuk stempel.
+- Label mono kapital dengan spasi renggang dipakai di lembar spesifikasi, mengikuti label di tema Shopify NVM.
 - Celah Void di amplop berupa garis gelap, karena garis krem tidak terlihat di atas kertas krem.
-- Kolom kiri desktop tidak menempel saat digulir: tingginya melebihi layar laptop, dan kolom menempel yang lebih tinggi dari layar menyembunyikan bagian bawahnya.
-- Tombol "Konfirmasi kehadiran" belum dipasang karena formulirnya baru ada di Sprint 6.
-- Judul memakai `text-wrap: balance` supaya tidak ada satu kata menggantung sendirian.
+- Kolom kiri desktop tidak menempel saat digulir, karena tingginya melebihi layar laptop.
+- Judul memakai `text-wrap: balance`.
 
-Bentol yang ditemui:
-- `git rm` file TTF ikut menghapus folder `public/fonts`, sehingga commit `2818da4` tidak berisi font woff2 dan halaman sempat memakai font cadangan. Diperbaiki di commit `0f946d6`.
-- GitHub dua kali menjawab Internal Server Error saat push. Commit tetap aman di laptop, push berhasil saat diulang.
-- Workspace asisten tidak bisa membuka arsip RAR, aset dikirim ulang sebagai ZIP.
+Bentol:
+- `git rm` file TTF ikut menghapus folder `public/fonts`, sehingga commit `2818da4` tanpa woff2. Diperbaiki di `0f946d6`.
+- GitHub dua kali menjawab Internal Server Error saat push. Berhasil saat diulang.
+- Workspace asisten tidak bisa membuka RAR, aset dikirim ulang sebagai ZIP.
 
 Catatan data:
-- `show_at` di database diisi perkiraan `2026-12-16 19:00`, berdasarkan pola film Avengers sebelumnya yang tayang di Indonesia hari Rabu sebelum rilis global. Tanggal resmi Indonesia belum diumumkan per 4 November 2026.
-- Database yang dipakai saat development adalah database yang sama dengan yang akan dipakai server.
-
-Dipindah ke Sprint 6:
-- Tombol "Konfirmasi kehadiran" di kolom kiri yang menggulir ke formulir.
-
-Dipindah ke Sprint 8:
-- Sebelum link disebar: isi jadwal resmi atau kosongkan dengan `event set show_at -`, dan pastikan tidak ada data uji tersisa.
-- Pertimbangkan database terpisah untuk development (misalnya `nvm_doomsday_dev`), supaya uji coba tidak menyentuh data asli setelah pendaftaran dibuka.
-
-Dipindah ke Sprint 9:
-- Uji animasi amplop, fokus setelah dibuka, ingatan per sesi, dan versi tanpa animasi.
-- Uji panel kursi saat sebagian terisi, penuh, ada daftar tunggu, dan ditutup, termasuk pembaruan saat tab kembali terlihat.
+- `show_at` diisi perkiraan `2026-12-16 19:00`, berdasarkan pola film Avengers sebelumnya yang tayang di Indonesia hari Rabu sebelum rilis global. Tanggal resmi Indonesia belum diumumkan per 4 November 2026. Wajib diganti sebelum link disebar.
 
 Dokumen yang perlu diperbarui:
-- SRS bagian 2.2 dan 11 masih menjelaskan konsep berkas rahasia, palet oranye, serta font Archivo dan IBM Plex. Perlu SRS v0.3.
+- SRS bagian 2.2 dan 11 masih menjelaskan konsep berkas rahasia, palet oranye, Archivo, dan IBM Plex. Diperbarui di SRS v0.3.
 
-## Sprint 6: Formulir dan kartu akses (frontend)
+---
+
+## Sprint 6: Formulir dan kartu akses
 
 Tujuan: pendaftaran ujung ke ujung dari browser.
 
-1. Formulir: Solo atau VIP sebagai radio button, data pendaftar, tamu 1 sampai `max_guests_vip`, tamu tidak terhapus saat pindah ke Solo, fokus ke tombol tambah tamu setelah tamu dihapus.
-2. Validasi di browser dengan aturan dan pesan yang sama dengan backend, ringkasan jumlah isian salah, fokus ke kolom salah pertama, pesan hilang saat kolomnya diubah.
-3. Kirim ke API: formulir terkunci saat mengirim, idempotency key dibuat sekali per isi formulir dengan `crypto.getRandomValues`, error server ditempel ke kolomnya, error tanpa kolom di atas tombol kirim.
+1. Formulir: Solo atau VIP sebagai radio, data pendaftar, tamu 1 sampai `max_guests_vip`, tamu tidak terhapus saat pindah ke Solo, fokus ke tombol tambah tamu setelah tamu dihapus.
+2. Validasi di browser dengan aturan dan pesan yang sama dengan backend, ringkasan jumlah isian salah, fokus ke kolom salah pertama.
+3. Kirim ke API: formulir terkunci, idempotency key sekali per isi formulir, error server ditempel ke kolomnya.
 4. Mode daftar tunggu saat kursi habis, peringatan saat rombongan lebih besar dari sisa kursi.
-5. Kartu akses hangtag: lubang tali, logo NVM, stempel, garis sobek bertakik, kode registrasi, peserta, acara, jadwal. Varian daftar tunggu dengan "Nomor urut {n} saat mendaftar".
-6. Simpan kartu sebagai PNG (menu bagikan di HTTPS, unduhan biasa, dan gambar untuk ditekan lama), salin kode dengan cadangan untuk HTTP.
-7. Kartu diingat di `localStorage` dengan pemeriksaan bentuk data, "Daftarkan orang lain", tombol ke formulir di layar di bawah 1024px.
+5. Kartu akses hangtag: lubang tali, logo NVM, stempel, garis sobek bertakik, kode, peserta, acara, jadwal. Varian daftar tunggu "Nomor urut {n} saat mendaftar".
+6. Simpan kartu sebagai PNG (menu bagikan di HTTPS, unduhan biasa, gambar untuk ditekan lama), salin kode dengan cadangan untuk HTTP.
+7. Kartu diingat di `localStorage` dengan pemeriksaan bentuk data, "Daftarkan orang lain", tombol ke formulir di bawah 1024px.
 
-Selesai bila: pendaftaran Solo, VIP, dan daftar tunggu berhasil dari browser dan tercatat di database, check.sh lulus.
+Selesai bila: Solo, VIP, dan daftar tunggu berhasil dari browser dan tercatat di database, `check.sh` lulus.
 Referensi: FR-10 sampai FR-24.
 
 ### Laporan
@@ -362,40 +360,32 @@ Referensi: FR-10 sampai FR-24.
 Status: selesai, 5 November 2026.
 
 Hasil uji:
-- Solo, VIP dua tamu, dan daftar tunggu berhasil dari browser, dan tercatat di tabel `registrations` dan `attendees` dengan status, posisi, dan kode yang sama dengan kartu.
-- Email yang sudah terdaftar ditolak server dan pesannya tampil di kolom tamu yang tepat, tanpa baris baru di database.
+- Solo, VIP dua tamu, dan daftar tunggu tercatat di `registrations` dan `attendees` dengan status, posisi, dan kode yang sama dengan kartu.
+- Email terdaftar ditolak dan pesannya tampil di kolom tamu yang tepat, tanpa baris baru.
 - Peringatan rombongan muncul dan hilang saat tamu ditambah dan dihapus, mode daftar tunggu tampil saat kursi habis.
-- PNG kartu utuh dengan font D-DIN, JetBrains Mono, dan logo NVM, setelah perbaikan margin.
-- Kartu tampil lagi saat link dibuka ulang di perangkat yang sama, dengan catatan tanggal penyimpanan.
+- PNG kartu utuh dengan D-DIN, JetBrains Mono, dan logo NVM.
+- Kartu tampil lagi saat link dibuka ulang di perangkat yang sama, dengan tanggal penyimpanan.
 
 Keputusan:
 - Idempotency key memakai `crypto.getRandomValues`, karena `crypto.randomUUID` tidak tersedia di HTTP lewat IP LAN.
-- Salin kode memakai `execCommand` sebagai cadangan, karena Clipboard API juga hanya ada di HTTPS.
+- Salin kode memakai `execCommand` sebagai cadangan, karena Clipboard API hanya ada di HTTPS.
 - Simpan kartu juga menampilkan gambarnya, karena browser bawaan WhatsApp dan Instagram sering mengabaikan unduhan.
-- Kartu yang dipulihkan menyebut tanggal penyimpanan dan bahwa perubahan status dikabarkan admin, karena belum ada endpoint untuk menanyakan status terbaru sebuah kode.
-- Tombol "Konfirmasi kehadiran" di kolom kiri hanya di bawah 1024px, berupa link biasa ke `#formulir`.
-- Label kolom "Nama akun" belum diberi petunjuk karena jenis akunnya belum diputuskan NVM.
+- Kartu yang dipulihkan menyebut tanggal penyimpanan, karena belum ada endpoint untuk status terbaru sebuah kode.
+- Tombol "Konfirmasi kehadiran" di kolom kiri hanya di bawah 1024px, berupa link ke `#formulir`.
+- Label "Nama akun" belum diberi petunjuk karena jenis akunnya belum diputuskan NVM.
 
-Bentol yang ditemui:
-- Kolom hasil isi otomatis Chrome berwarna biru di luar palet. Diperbaiki dengan gaya `-webkit-autofill`.
-- Judul "Data kamu" tidak tebal karena berupa `legend`, bukan `h3`. Diberi `font-bold`.
-- PNG kartu terpotong di kanan karena margin `mx-auto` ikut tergambar. Diperbaiki dengan `style: { margin: '0' }` saat menggambar.
-- `html-to-image` sempat terpasang di root repo, bukan di `frontend/`, sehingga build Docker akan gagal. Dipindah, dan `.gitignore` sekarang mengabaikan `node_modules/` di mana pun.
-
-Dipindah ke Sprint 8:
-- Uji dari HP lewat IP LAN: idempotency key, salin kode lewat cadangan, simpan kartu dengan tekan lama.
-
-Dipindah ke Sprint 9:
-- Vitest untuk `validateRegistration` dan `newIdempotencyKey`, serta kesamaan pesan dengan backend.
-- Uji keyboard penuh formulir: pilihan tipe dengan tombol panah, tambah dan hapus tamu, fokus setelah gagal dan setelah berhasil.
-
-Dipindah ke Sprint 10:
-- Uji menu bagikan bawaan HP untuk simpan kartu, yang hanya aktif di HTTPS.
+Bentol:
+- Kolom isi otomatis Chrome berwarna biru di luar palet. Diperbaiki dengan gaya `-webkit-autofill`.
+- "Data kamu" tidak tebal karena berupa `legend`. Diberi `font-bold`.
+- PNG kartu terpotong di kanan karena margin `mx-auto` ikut tergambar. Diperbaiki dengan `style: { margin: '0' }`.
+- `html-to-image` sempat terpasang di root repo, bukan di `frontend/`. Dipindah, dan `.gitignore` mengabaikan `node_modules/` di mana pun.
 
 Untuk dipertimbangkan:
-- Endpoint publik untuk menanyakan status terbaru berdasarkan kode, supaya kartu yang dipulihkan bisa memperbarui statusnya sendiri.
+- Endpoint publik untuk menanyakan status terbaru berdasarkan kode.
 
-## Sprint 7: Halaman admin (frontend)
+---
+
+## Sprint 7: Halaman admin
 
 Tujuan: admin mengelola data dari browser.
 
@@ -404,94 +394,224 @@ Tujuan: admin mengelola data dari browser.
 3. Tombol "Unduh Excel" dan "Unduh CSV".
 4. Tombol keluar yang menghapus sesi.
 
-Selesai bila: admin bisa masuk, melihat angka yang cocok dengan database, dan mengunduh dua format, check.sh lulus.
+Selesai bila: admin bisa masuk, melihat angka yang cocok dengan database, dan mengunduh dua format, `check.sh` lulus.
 Referensi: FR-30, FR-31, FR-37.
 
-## Laporan Sprint 7: halaman admin
+### Laporan
 
-Status: selesai. Commit f1b4601.
+Status: selesai, 5 November 2026. Commit `f1b4601`.
 
-### Yang dikerjakan
+Yang dikerjakan:
 
 | Bagian | Hasil |
 |---|---|
-| Cek sesi saat halaman dibuka | Skeleton tampil dulu. Kalau cookie `doomsday_admin` masih berlaku, halaman langsung ke rekap. Kalau tidak, ke form masuk |
-| Form masuk | Satu kolom "Sandi admin", fokus langsung ke kolom itu. Kalau kosong, tampil "Isi sandi admin." Pesan sandi salah dan batas percobaan datang dari server |
-| Rekap | Tiga baris: Terkonfirmasi "{x} dari {kapasitas} peserta", Daftar tunggu "{y} peserta", Batal "{z} registrasi". Angka memakai JetBrains Mono tabular |
+| Cek sesi saat dibuka | Skeleton dulu. Cookie masih berlaku, langsung ke rekap. Kalau tidak, ke form masuk |
+| Form masuk | Satu kolom "Sandi admin" dengan fokus otomatis. Kosong: "Isi sandi admin." Sandi salah dan batas percobaan dari server |
+| Rekap | Terkonfirmasi "{x} dari {kapasitas} peserta", Daftar tunggu "{y} peserta", Batal "{z} registrasi", angka JetBrains Mono tabular |
 | State | Memuat (skeleton), gagal (pesan dan "Coba lagi"), kosong ("Belum ada peserta. File unduhan hanya berisi judul kolom.") |
-| Unduh | "Unduh Excel" (utama) dan "Unduh CSV" (outline), bertumpuk di HP dan berdampingan mulai `sm` |
+| Unduh | "Unduh Excel" (utama) dan "Unduh CSV" (outline), bertumpuk di HP, berdampingan mulai `sm` |
 | Keluar | Cookie dihapus lewat API, form tampil dengan "Kamu sudah keluar." |
 
-### Keputusan
+Keputusan:
+- Sesi dicek lagi sebelum mengunduh. File diunduh lewat link biasa supaya browser memakai nama dari `Content-Disposition`. Tanpa cek ini, sesi yang habis akan menyimpan error JSON sebagai `.xlsx` rusak.
+- Jawaban 401 dari endpoint mana pun mengembalikan admin ke form masuk.
+- Tanpa persentase atau grafik. Admin butuh angka yang sama dengan isi file.
+- Setelah masuk, fokus pindah ke judul "Rekap pendaftaran" untuk pembaca layar.
 
-- Sesi dicek sekali lagi sebelum mengunduh. File diunduh lewat link biasa supaya browser memakai nama file dari `Content-Disposition`. Tanpa cek ini, sesi yang sudah habis akan menyimpan pesan error JSON sebagai file `.xlsx` yang rusak.
-- Jawaban 401 dari endpoint mana pun mengembalikan admin ke form masuk dengan pesan dari server, bukan menampilkan error di rekap.
-- Tidak ada persentase atau grafik. Admin butuh angka yang sama dengan isi file.
-- Setelah masuk, fokus pindah ke judul "Rekap pendaftaran" supaya pembaca layar tahu halamannya sudah berganti.
-
-### Hasil uji
+Hasil uji:
 
 | Uji | Hasil |
 |---|---|
-| Masuk dengan sandi benar, rekap dengan data uji (kapasitas 3, dua VIP, satu dibatalkan) | Lulus: "2 dari 3 peserta", "0 peserta", "1 registrasi" |
+| Rekap dengan data uji (kapasitas 3, dua VIP, satu batal) | "2 dari 3 peserta", "0 peserta", "1 registrasi" |
+| CSV dibuka di Excel dengan pengaturan regional Indonesia | Kolom terpisah rapi, tidak perlu pemisah titik koma |
 | `check.sh` | Lulus |
 
-### Dibawa ke Sprint 9
-
-- Sisa tabel uji Sprint 7: kirim kosong, sandi salah, batas 5 percobaan per 12 detik, muat ulang tetap masuk, unduh dua format, cookie dihapus lalu unduh kembali ke form, keluar, rekap kosong, keyboard saja di lebar 320px.
-- CSV di Excel dengan pengaturan regional Indonesia (pemisah daftar titik koma). Kalau kolom menumpuk di kolom A, pilihannya: CSV memakai titik koma, atau tambahkan baris `sep=,` di awal file. Belum diputuskan sampai ada hasil uji.
-- Admin di HP lewat LAN (Sprint 8): unduhan di Chrome Android dan Safari iOS.
+---
 
 ## Sprint 8: Docker dan deploy LAN
 
 Tujuan: aplikasi jalan di VM dan bisa dibuka dari perangkat lain di Wi-Fi kantor.
 
-1. `backend/Dockerfile` multi-stage (build Go, image akhir distroless atau alpine, jalan sebagai user non-root). Image berisi binary `api` dan `doomsday-admin`.
-2. `frontend/Dockerfile` multi-stage (build Vite, sajikan dengan Nginx).
-3. `frontend/nginx.conf`: sajikan aset statis, teruskan `/api` ke container backend, kirim header `X-Forwarded-For`, batasi ukuran body, header keamanan dasar.
-4. `deploy/docker-compose.yml`: service `doomsday-backend` tanpa port terbuka ke host, `doomsday-frontend` di port 8090, keduanya tersambung ke network Postgres yang sudah ada, `restart: unless-stopped`.
-5. Env produksi di `deploy/.env` di VM (tidak masuk git), migrasi dijalankan sebagai langkah deploy.
-6. Backup harian `pg_dump` database `nvm_doomsday` ke folder di VM.
-7. Uji akses dari HP dan laptop lain di Wi-Fi kantor.
+1. `backend/Dockerfile` multi-stage ke distroless, user non-root, binary `api` dan `doomsday-admin`.
+2. `frontend/Dockerfile` multi-stage, disajikan Nginx.
+3. `frontend/nginx.conf`: aset statis, proxy `/api`, `X-Forwarded-For`, batas body, header keamanan.
+4. `deploy/docker-compose.yml`: backend tanpa port ke host, frontend di 8090, tersambung ke network Postgres, `restart: unless-stopped`.
+5. `deploy/.env` di VM (tidak masuk git), migrasi sebagai langkah deploy.
+6. Backup harian `pg_dump` ke folder di VM.
+7. Uji akses dari HP dan PC lain di Wi-Fi kantor.
 
 Selesai bila: `http://<IP VM>:8090` terbuka dari perangkat lain di LAN, pendaftaran tercatat, backup pertama terbentuk.
 Referensi: NFR-04, NFR-05, NFR-07.
 
-## Sprint 9: Pengujian menyeluruh
+### Laporan
+
+Status: selesai, 5 November 2026. Commit `77c2131`, `b26e6e5`, `b93ebe2`, `fb71dda`.
+
+Pelajaran dari deploy compro yang langsung diterapkan:
+
+| Kejadian di compro | Penerapan di Doomsday |
+|---|---|
+| Binary hasil CGO restart terus di distroless dengan `no such file or directory` | `CGO_ENABLED=0` dan pengaman `go version -m` yang menggagalkan build |
+| `compose config` tanpa `--quiet` mencetak sandi | Validasi selalu dengan `--quiet` |
+| Jam VM memakai UTC | Cron ditulis dalam UTC dengan keterangan WIB |
+| Backup lewat `docker exec pg_dump` tanpa sandi, dengan trap, log, dan izin ketat | Dipakai sejak awal, ditambah verifikasi `pg_restore --list` |
+| Request LAN membawa IP asli klien | `X-Forwarded-For` ditimpa Nginx, backend hanya percaya subnet Doomsday |
+
+Hasil uji:
+
+| Uji | Hasil |
+|---|---|
+| Build pertama di VM | Selesai dalam 128 detik |
+| `doomsday ps` | Backend `Up` tanpa port ke host, frontend `Up (healthy)` di `0.0.0.0:8090` |
+| Log backend | `server jalan`, `env: production`, tanpa bentol config atau koneksi |
+| `/api/health` lewat Nginx | `{"database":"up","status":"ok"}` |
+| `/`, `/admin`, `/assets/tidak-ada.js` | 200, 200, 404 |
+| Header | CSP, `X-Frame-Options: DENY`, `Cache-Control: no-cache` di `index.html` |
+| Migrasi lewat container `migrate/migrate:v4.18.1` | versi 3, `up` menjawab `no change` |
+| Daftar Solo dari HP Android lewat Wi-Fi | 201 dari `192.168.68.141`, tercatat di database |
+| Salin kode dan simpan kartu PNG di HP | Berhasil lewat HTTP, CSP tidak memblokir html-to-image |
+| Admin dari PC lewat LAN | Masuk, rekap, dan unduh Excel berhasil, console bersih |
+| IP palsu: 7 login dengan `X-Forwarded-For: 203.0.113.1` sampai `.7` | 401 lima kali lalu 429, backend mengabaikan header palsu |
+| Perangkat dihitung terpisah | Login HP tetap "Sandi salah" saat PC sedang terkena batas |
+| Log Nginx | IP asli PC `192.168.68.143` dan HP `192.168.68.141`, bukan IP gateway Docker |
+| Backup manual | Dua kali `OK`, file `-rw-------`, folder `drwx------` |
+| Uji pemulihan ke `nvm_doomsday_restore` | Versi migrasi 3 dan jumlah baris sama dengan asli. Tabel peserta saat itu kosong, jadi isi data diuji ulang di Sprint 10 |
+| Cron | `15 19 * * *` (02.15 WIB), 15 menit setelah backup compro |
+
+Keputusan:
+- Image akhir backend `distroless/static-debian12:nonroot` tanpa shell dan libc, jalan sebagai uid 65532.
+- Migrasi tidak ikut di image backend. Dijalankan dengan container `migrate/migrate` sebagai `doomsday_migrator`, supaya backend tidak pernah memegang kredensial pemilik tabel.
+- Nginx me-resolve ulang `doomsday-backend` lewat DNS Docker (`resolver 127.0.0.11`), supaya tidak 502 setelah backend di-build ulang sendirian.
+- `try_files $uri /index.html` tanpa `$uri/`, dan file yang tidak ada di `/assets/` dijawab 404.
+- Cache: `/assets/` 1 tahun, font dan logo 7 hari, `index.html` selalu dicek ulang.
+- Header keamanan hanya di level `server`, cache diatur dengan `expires`, karena `add_header` di location mematikan pewarisan.
+- CSP mengizinkan `style-src 'unsafe-inline'` dan `img-src data: blob:` untuk html-to-image. Script hanya `'self'`.
+- Network `doomsday` dengan subnet tetap `172.30.93.0/24` hanya berisi Nginx dan backend. Container lain di `nvm-internal_default` tidak dipercaya.
+- Backend read-only, semua capability dicabut, `no-new-privileges`. Nginx hanya `no-new-privileges`.
+- Log container dibatasi 3 x 10 MB per service.
+- Health check di frontend memanggil `/api/health` lewat Nginx, sekaligus menguji backend dan database.
+- `SESSION_SECRET` dan sandi admin produksi berbeda dari dev.
+- Backup di `/srv/nvm-doomsday-data/backup`, terpisah dari repo `/srv/nvm-doomsday`, retensi 14 hari. Backup lama baru dihapus setelah backup baru terbukti baik.
+
+Bentol:
+- `git log` tanpa `--oneline` membuka pager, lalu sempat dihentikan dengan `Ctrl+Z` sehingga prosesnya tertinggal. Dibereskan dengan `kill %1`. Untuk melihat commit tanpa pager: `git --no-pager log --oneline -5`.
+- Uji daftar pertama dari HP tidak tercatat di log Nginx. Diulang dan tercatat 201.
+
+Operasional di VM:
+
+| Keperluan | Perintah |
+|---|---|
+| Alias (di `~/.bashrc`) | `doomsday` = `docker compose -f /srv/nvm-doomsday/deploy/docker-compose.yml --env-file /srv/nvm-doomsday/deploy/.env` |
+| Status dan log | `doomsday ps`, `doomsday logs doomsday-backend --tail 50` |
+| Deploy ulang | `cd /srv/nvm-doomsday && git pull`, migrasi bila ada file baru di `backend/migrations`, lalu `doomsday up -d --build` |
+| Migrasi | `docker run --rm --network nvm-internal_default -v /srv/nvm-doomsday/backend/migrations:/migrations:ro migrate/migrate:v4.18.1 -path=/migrations -database "postgres://doomsday_migrator:<sandi>@nvm-internal-postgres:5432/nvm_doomsday?sslmode=disable" up`, sandi dibaca dengan `read -rs` |
+| CLI admin | `doomsday exec doomsday-backend doomsday-admin <perintah>` |
+| Backup manual | `/srv/nvm-doomsday/deploy/backup.sh`, hasilnya di `backup.log` |
+| Pulihkan produksi (belum diuji) | `doomsday stop doomsday-backend`, lalu `docker exec -i nvm-internal-postgres pg_restore -U doomsday_migrator -d nvm_doomsday --clean --if-exists --single-transaction < <file>`, lalu `doomsday start doomsday-backend`. Tanpa `--no-privileges`, supaya grant ke `doomsday_app` ikut pulih |
+
+---
+
+## Sprint 9: Revisi cek nama akun VIP dan aset Doomsday
+
+Tujuan: revisi dari manajer. Tipe pendaftaran ditentukan dari daftar VIP milik admin, bukan dipilih pengunjung, dan halaman punya tempat untuk foto atau aset Doomsday.
+
+Keputusan revisi (5 November 2026):
+
+| Hal | Keputusan |
+|---|---|
+| Alur | Setelah amplop dibuka, pengunjung mengisi satu kolom "Nama akun". Ada di daftar VIP: formulir VIP. Tidak ada: formulir Solo |
+| Hak VIP | Tetap seperti sebelumnya: boleh membawa maksimal 3 tamu. Solo hanya dirinya |
+| Pengaman | Satu nama akun VIP hanya untuk satu registrasi yang belum batal. Kalau registrasinya dibatalkan, nama itu bisa dipakai lagi |
+| Input VIP | Halaman admin: tambah satu, tempel banyak (satu nama per baris), nonaktifkan, lihat nama mana yang sudah dipakai kode registrasi mana |
+| Aset | File di `frontend/public/doomsday/` dan satu file daftar di `src/content/`. Ganti foto artinya commit dan build ulang. Daftar kosong, bagiannya tidak tampil |
+| Penentu tipe | Server, di dalam transaksi pendaftaran. Tipe tidak lagi dikirim dari browser |
+| Pencocokan | Tidak peka huruf besar kecil, spasi di awal dan akhir dibuang, `@` di depan dibuang |
+| Nama VIP sudah dipakai | Pengunjung melihat "Nama akun ini sudah terdaftar. Hubungi admin NVM." Tidak otomatis jadi Solo |
+| Hapus VIP | Ditandai nonaktif, bukan dihapus, karena `doomsday_app` tidak punya izin DELETE |
+
+Rencana:
+
+1. Migrasi 0004: tabel `vip_accounts` (nama asli, nama ternormalisasi unik, aktif, waktu dibuat) dan kolom `registrations.vip_account_id` dengan index unik untuk registrasi yang belum batal.
+2. Backend: fungsi normalisasi nama, endpoint publik cek nama akun dengan rate limit, pendaftaran menentukan tipe dari daftar VIP di dalam kunci event.
+3. API admin daftar VIP: lihat, tambah, tempel banyak (laporan ditambah, sudah ada, dilewati), nonaktifkan. Perintah CLI yang sama untuk cadangan.
+4. Halaman undangan: langkah nama akun, lalu formulir VIP atau Solo dengan nama akun pendaftar terkunci dan tombol untuk mengganti nama akun.
+5. Halaman admin: bagian Daftar VIP dengan state memuat, kosong, gagal.
+6. Slot aset Doomsday dari folder dan file daftar, dengan teks alternatif wajib.
+7. Deploy ulang ke VM: `git pull`, migrasi 0004, build, uji ulang pemulihan backup dengan data.
+
+Selesai bila: nama VIP menghasilkan formulir VIP, nama lain menghasilkan Solo, nama VIP kedua kalinya ditolak, admin bisa mengelola daftar dari browser, aset tampil dari folder, semuanya jalan di VM, `check.sh` lulus.
+
+---
+
+## Sprint 10: Pengujian menyeluruh
 
 Tujuan: semua kebutuhan terbukti jalan sebelum link disebar.
 
-1. Backend, unit test: validasi, generator kode, aturan kuota dan daftar tunggu, sanitasi CSV.
-2. Backend, integration test dengan database uji: semua kode respons di SRS 7, idempotency, email unik, CLI admin.
-3. Backend, uji balapan kuota: banyak pendaftaran serentak saat sisa kursi sedikit, hasilnya tidak boleh melebihi 200 peserta terkonfirmasi.
-4. Frontend, Vitest untuk validasi formulir dan pemetaan error. Tambahkan `vitest run` ke bagian frontend di check.sh.
-5. Uji manual per FR dengan checklist, termasuk browser bawaan WhatsApp dan Instagram.
-6. Aksesibilitas: navigasi penuh dengan keyboard, focus terlihat, cek kontras ulang, reduced motion.
-7. Responsif: 320px, 375px, 768px, 1024px, 1440px, tanpa scroll horizontal.
-8. Delivery Gate AntiSlop, satu baris PASS atau FAIL per poin beserta buktinya.
+Rencana:
+
+1. Backend unit test: validasi, generator kode, normalisasi nama akun, aturan kuota dan daftar tunggu, sanitasi CSV, `adminauth` (token kedaluwarsa, tanda tangan salah), `export` (urutan, nomor urut).
+2. Backend integration test dengan database uji: semua kode respons di SRS 7, idempotency, email unik, VIP sekali pakai, CLI admin.
+3. Uji balapan: banyak pendaftaran serentak saat sisa kursi sedikit tidak melebihi kapasitas, dan dua pendaftaran serentak dengan nama VIP sama hanya satu yang lolos.
+4. Frontend Vitest: validasi formulir, `newIdempotencyKey`, pemetaan error, kesamaan pesan dengan backend. `vitest run` masuk ke `check.sh`.
+5. Uji manual per FR, termasuk browser bawaan WhatsApp dan Instagram.
+6. Aksesibilitas: keyboard penuh, focus terlihat, kontras dihitung ulang, reduced motion.
+7. Responsif: 320, 375, 768, 1024, 1440 px tanpa scroll horizontal.
+8. Delivery Gate AntiSlop, satu baris PASS atau FAIL per poin beserta bukti.
+
+Checklist uji yang ditunda dari sprint sebelumnya:
+
+| Asal | Uji |
+|---|---|
+| Sprint 1 | Health 503 saat database putus, pulih tanpa restart, gagal di awal saat database tidak terjangkau |
+| Sprint 1 | Membatalkan registrasi membuat email pesertanya bisa dipakai lagi (lewat integration test) |
+| Sprint 5 | Animasi amplop, fokus setelah dibuka, ingatan per sesi, versi tanpa animasi |
+| Sprint 5 | Panel kursi sebagian terisi, penuh, ada daftar tunggu, ditutup, termasuk pembaruan saat tab kembali terlihat |
+| Sprint 6 | Keyboard penuh formulir: tombol panah di pilihan, tambah dan hapus tamu, fokus setelah gagal dan berhasil |
+| Sprint 6 | Idempotency key dari HP: kirim, putuskan jaringan, kirim ulang, kode sama |
+| Sprint 7 | Kirim kosong, sandi salah, batas 5 percobaan, muat ulang tetap masuk, cookie dihapus lalu unduh kembali ke form, keluar, rekap kosong, keyboard saja di 320px |
+| Sprint 7 | Unduhan admin di Chrome Android dan Safari iOS |
+| Sprint 8 | Uji pemulihan backup dengan data peserta, termasuk prosedur pulih produksi di database uji |
 
 Selesai bila: semua checklist lulus, tidak ada bentol terbuka berprioritas M.
 
-## Sprint 10: Rilis publik (tertahan)
+---
+
+## Sprint 11: Rilis publik (tertahan)
 
 Tujuan: link bisa dibuka affiliator dari luar kantor.
 
 1. Tentukan domain atau subdomain.
-2. Arahkan lewat Cloudflare Tunnel ke `doomsday-frontend`, HTTPS dari Cloudflare.
-3. Perbarui origin CORS di env backend dan atur cookie admin menjadi Secure.
-4. Pertimbangkan membatasi `/admin` lewat Cloudflare Zero Trust.
+2. Cloudflare Tunnel ke `doomsday-frontend`, HTTPS dari Cloudflare.
+3. IP asli pengunjung dari `CF-Connecting-IP`, hanya dipercaya dari gateway tunnel (pola yang sama dengan compro).
+4. `COOKIE_SECURE=true`.
+5. Pertimbangkan membatasi `/admin` lewat Cloudflare Zero Trust.
+6. Uji menu bagikan bawaan HP untuk simpan kartu dan Clipboard API, yang hanya aktif di HTTPS.
 
 Tertahan sampai: domain dipilih.
+
+---
+
+## Sebelum link disebar
+
+| Cek | Cara |
+|---|---|
+| Jadwal resmi terisi, atau dikosongkan | `doomsday-admin event set show_at ...` atau `event set show_at -` |
+| Bioskop, kota, studio, link peta | `doomsday-admin event set ...` |
+| Kapasitas 200 dan pendaftaran terbuka | `doomsday-admin event show` |
+| Data uji terhapus | Dihapus sebagai `doomsday_migrator`, karena `doomsday_app` tidak punya DELETE. Backup dulu sebelum menghapus |
+| Daftar VIP final dari NVM | Halaman admin |
+| Database dev terpisah | Putuskan `nvm_doomsday_dev` untuk development, supaya uji coba tidak menyentuh data asli |
+| Kontak admin di FAQ | Isi teks FAQ |
 
 ## Keputusan yang masih menunggu
 
 | Keputusan | Mempengaruhi |
 |---|---|
-| "Nama akun" itu akun apa | Label dan validasi field (Sprint 2, 6) |
-| Bioskop, kota, studio, jadwal | Isi `event_config`, bisa diisi lewat CLI kapan saja |
-| Batas akhir pendaftaran | Perlu kolom deadline atau cukup tutup manual |
+| "Nama akun" itu akun apa (TikTok, Shopee, Instagram, atau lainnya) | Label dan petunjuk kolom, dan sekarang juga pencocokan VIP, karena ejaan nama harus sama dengan daftar admin |
+| Bioskop, kota, studio, jadwal | Isi `event_config` |
+| Batas akhir pendaftaran | Kolom deadline atau tutup manual |
 | Perlu identitas saat hari H | Teks FAQ dan kartu akses |
-| Kontak admin untuk FAQ | Teks FAQ |
-| Domain | Sprint 10 |
-| Lama penyimpanan data setelah acara | Prosedur hapus data |
+| Kontak admin untuk FAQ | Teks FAQ dan pesan nama VIP sudah dipakai |
+| Domain | Sprint 11 |
+| Lama penyimpanan data setelah acara | Prosedur hapus data dan backup |
 | Batas jumlah daftar tunggu | Aturan pendaftaran (saat ini tanpa batas) |
